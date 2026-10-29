@@ -1,0 +1,7 @@
+Hak cipta (c) 2026 [ISI NAMA LENGKAP ANDA]. Seluruh hak dilindungi.
+
+Perangkat lunak ini (kode sumber, tampilan, dan dokumentasi) adalah milik pemegang hak cipta di atas.
+Tidak ada izin untuk menyalin, mengubah, menyebarkan, menjual, atau memakai perangkat lunak ini
+tanpa perjanjian tertulis dari pemegang hak cipta.
+
+Pustaka pihak ketiga yang disertakan (qrcode.js, jsQR) tetap tunduk pada lisensi masing-masing (MIT).
