@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1D4ED8"><title>D-CHA Admin</title>
+<link rel="stylesheet" href="style.css"><link rel="manifest" href="manifest-admin.json">
+<link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="D-CHA Admin">
+<script src="config.js"></script><script src="jsQR.js"></script><script src="app.js"></script></head>
+<body><main class="wrap" id="app">
+<section id="v-login" hidden>
+  <div class="card"><img src="icons/icon-192.png" width="96" height="96" alt="Logo D-CHA GYM"><div class="nama">Masuk Admin</div>
+  <div class="f" style="width:100%;text-align:left"><label for="kid">Kode pengguna</label><input id="kid" type="text" autocapitalize="characters" autocomplete="username" placeholder="Contoh: ADM1"></div>
+  <div class="f" style="width:100%;text-align:left"><label for="pin">PIN (6 angka)</label><input id="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password"></div>
+  <p class="gal" id="lerr"></p><button id="masuk" style="width:100%">Masuk</button></div>
+</section>
+<section id="v-main" hidden>
+  <div class="top"><b id="judul">Scan presensi</b><button class="sec" id="keluar" style="min-height:40px;padding:0 12px;font-size:14px">Keluar</button></div>
+  <div id="v-scan" class="v" style="display:flex;flex-direction:column;gap:14px">
+    <div class="cam"><video id="vid" playsinline muted></video><p id="camp">Menyalakan kamera...</p></div>
+    <div id="camerr" class="gal" hidden></div>
+    <div id="hasil"></div>
+    <div class="panel"><div class="f"><label for="manual">Kamera bermasalah? Ketik nomor WA atau ID member</label><input id="manual" type="tel" placeholder="08xxxxxxxxxx atau M0001"></div>
+    <button class="sec" data-a="manual">Cari dan catat</button><button class="sec" data-a="fotoqr">Scan lewat foto QR (cadangan)</button>
+    <input id="fqr" type="file" accept="image/*" capture="environment" hidden></div>
+  </div>
+  <div id="v-daftar" class="v" style="display:none;flex-direction:column;gap:14px"></div>
+  <div id="v-tamu" class="v" style="display:none;flex-direction:column;gap:14px"></div>
+  <nav class="nav" id="nav"><button data-n="scan" class="on">Scan</button><button data-n="daftar">Daftar</button><button data-n="tamu">Tamu</button></nav>
+</section>
+<input id="ffoto" type="file" accept="image/*" capture="user" hidden>
+</main>
+<script>
+(function () {
+  var $ = function (i) { return document.getElementById(i); }, KS = 'dcha_admin';
+  var S = { tok: '', user: null, harga: { member: 100000, tamu: 10000 } };
+  var D = { mode: 'baru', metode: 'Tunai', nama: '', wa: '', foto: '', q: '', hasil: [], pilih: null, layar: 'form', sukses: null, sibuk: false };
+  var T = { metode: 'Tunai', wa: '', nama: '', sibuk: false };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var kataKunci = function (r) { return r && r.pesan ? r.pesan : 'Terjadi kesalahan.'; };
+  function toast(t, e) { var x = document.createElement('div'); x.className = 'toast' + (e ? ' e' : ''); x.textContent = t; document.body.appendChild(x); setTimeout(function () { x.remove(); }, 3200); }
+  function kirim(aksi, d) {
+    d = d || {}; d.aksi = aksi; d.token = S.tok;
+    return api(d).then(function (r) { if (r && r.kode === 'SESI') { keluar('Sesi habis. Silakan masuk lagi.'); throw new Error('sesi'); } return r; });
+  }
+  function jaringan(e) { if (!e || e.message !== 'sesi') toast('Tidak ada koneksi atau server sibuk. Coba lagi.', true); }
+
+  /* ---------- Masuk dan keluar ---------- */
+  function simpan() { try { localStorage.setItem(KS, JSON.stringify({ tok: S.tok, user: S.user, harga: S.harga, exp: Date.now() + 11 * 3600000 })); } catch (e) { } }
+  function tampilLogin(pesan) { stopKamera(); $('v-main').hidden = true; $('v-login').hidden = false; $('lerr').textContent = pesan || ''; try { $('kid').value = localStorage.getItem(KS + '_id') || ''; } catch (e) { } $('pin').value = ''; }
+  function keluar(pesan) { try { if (S.tok) api({ aksi: 'logout', token: S.tok }).catch(function () { }); localStorage.removeItem(KS); } catch (e) { } S.tok = ''; tampilLogin(pesan); }
+  function masukApp() { $('v-login').hidden = true; $('v-main').hidden = false; buka('scan'); }
+  $('masuk').onclick = function () {
+    var id = $('kid').value.trim().toUpperCase(), pin = $('pin').value.trim(), b = $('masuk');
+    if (!id || !/^\d{6}$/.test(pin)) { $('lerr').textContent = 'Isi kode pengguna dan PIN 6 angka.'; return; }
+    b.disabled = true; $('lerr').textContent = '';
+    api({ aksi: 'login', id: id, pin: pin }).then(function (r) {
+      b.disabled = false;
+      if (!r.ok) { $('lerr').textContent = kataKunci(r); $('pin').value = ''; return; }
+      if (r.peran !== 'Admin') { api({ aksi: 'logout', token: r.token }).catch(function () { }); $('lerr').textContent = 'Akun ini bukan akun Admin.'; return; }
+      S.tok = r.token; S.user = { id: r.id, nama: r.nama }; if (r.harga) S.harga = r.harga; simpan();
+      try { localStorage.setItem(KS + '_id', id); } catch (e) { } masukApp();
+    }).catch(function () { b.disabled = false; $('lerr').textContent = 'Tidak ada koneksi. Coba lagi.'; });
+  };
+  $('keluar').onclick = function () { keluar(''); };
+
+  /* ---------- Navigasi ---------- */
+  var JUDUL = { scan: 'Scan presensi', daftar: 'Daftar / perpanjang', tamu: 'Catat tamu harian' };
+  function buka(n) {
+    ['scan', 'daftar', 'tamu'].forEach(function (x) { var v = $('v-' + x); v.style.display = x === n ? 'flex' : 'none'; });
+    document.querySelectorAll('#nav button').forEach(function (b) { b.className = b.getAttribute('data-n') === n ? 'on' : ''; });
+    $('judul').textContent = JUDUL[n]; stopKamera();
+    if (n === 'scan') mulaiKamera(); if (n === 'daftar') gambarDaftar(); if (n === 'tamu') gambarTamu();
+  }
+  $('nav').onclick = function (e) { var n = e.target.getAttribute('data-n'); if (n) buka(n); };
+
+  /* ---------- Kamera dan scan ---------- */
+  var vid = $('vid'), cv = document.createElement('canvas'), stream = null, loop = 0, jeda = 0, t0 = 0;
+  function stopKamera() { if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } cancelAnimationFrame(loop); }
+  function galat(e) {
+    var n = e && e.name;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return 'Browser ini tidak mendukung kamera. Buka lewat Chrome.';
+    if (n === 'NotAllowedError' || n === 'SecurityError') return 'Izin kamera ditolak. Ketuk ikon gembok di bilah alamat, pilih Izin, aktifkan Kamera, lalu muat ulang halaman.';
+    if (n === 'NotFoundError') return 'Kamera tidak ditemukan.';
+    if (n === 'NotReadableError') return 'Kamera sedang dipakai aplikasi lain. Tutup aplikasi itu lalu coba lagi.';
+    return 'Kamera tidak dapat dibuka (' + (n || 'tidak diketahui') + '). Gunakan kolom ketik atau scan lewat foto di bawah.';
+  }
+  function mulaiKamera() {
+    $('camerr').hidden = true; $('camp').textContent = 'Menyalakan kamera...';
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('camerr').hidden = false; $('camerr').textContent = galat(); $('camp').textContent = 'Kamera tidak aktif'; return; }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false }).then(function (s) {
+      stream = s; vid.srcObject = s; return vid.play();
+    }).then(function () { $('camp').textContent = 'Arahkan kamera ke QR member'; loop = requestAnimationFrame(pindai); })
+      .catch(function (e) { stopKamera(); $('camerr').hidden = false; $('camerr').textContent = galat(e); $('camp').textContent = 'Kamera tidak aktif'; });
+  }
+  function bacaGambar(src, w, h) { var im = src.getContext('2d').getImageData(0, 0, w, h); var r = jsQR(im.data, w, h, { inversionAttempts: 'attemptBoth' }); return r && r.data; }
+  function pindai() {
+    if (!stream) return;
+    if (vid.readyState >= 2 && Date.now() > jeda && Date.now() - t0 > 120) {
+      t0 = Date.now(); var w = vid.videoWidth, h = vid.videoHeight, sk = Math.min(1, 640 / w);
+      cv.width = Math.round(w * sk); cv.height = Math.round(h * sk); cv.getContext('2d', { willReadFrequently: true }).drawImage(vid, 0, 0, cv.width, cv.height);
+      var kode = bacaGambar(cv, cv.width, cv.height); if (kode) catat(kode);
+    }
+    loop = requestAnimationFrame(pindai);
+  }
+  function muatGambar(file, maks) {
+    return new Promise(function (ok, gagal) {
+      var u = URL.createObjectURL(file), im = new Image();
+      im.onload = function () { var sk = Math.min(1, maks / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * sk); c.height = Math.round(im.height * sk); c.getContext('2d', { willReadFrequently: true }).drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(u); ok(c); };
+      im.onerror = function () { gagal(new Error('gambar')); }; im.src = u;
+    });
+  }
+  function catat(kode) {
+    jeda = Date.now() + 2500; if (navigator.vibrate) navigator.vibrate(60);
+    kirim('scan', { kode: kode }).then(tampilScan).catch(jaringan);
+  }
+  function tampilScan(r) {
+    var b = $('hasil');
+    if (!r.ok) { b.innerHTML = '<div class="hasil x"><div class="ph">!</div><div><div class="nama" style="font-size:18px">' + esc(kataKunci(r)) + '</div><p class="muted">Coba scan ulang atau ketik nomor WA.</p></div></div>'; return; }
+    var foto = r.foto ? '<img alt="Foto member" src="' + esc(r.foto) + '">' : '<div class="ph">' + esc(String(r.nama).charAt(0)) + '</div>';
+    if (!r.aktif) {
+      b.innerHTML = '<div class="hasil x">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">TIDAK AKTIF</span><p class="muted">Berakhir ' + esc(fmtTgl(r.tglHabis)) + '</p></div></div><p class="muted">Presensi tidak dicatat. Tawarkan perpanjang atau catat sebagai tamu.</p><button data-a="perp" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Perpanjang sekarang</button>';
+      return;
+    }
+    var aksi = r.duplikat ? 'Sudah tercatat ' + r.aksi + ' pukul ' + r.jam : (r.aksi === 'MASUK' ? 'Masuk ' : 'Keluar ') + r.jam;
+    b.innerHTML = '<div class="hasil">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">AKTIF</span><p class="muted">Sampai ' + esc(fmtTgl(r.tglHabis)) + '</p><p style="margin:0;font-weight:600">' + esc(aksi) + '</p></div></div><p class="muted">Cocokkan wajah dengan foto sebelum mempersilakan masuk.</p>';
+  }
+  $('v-scan').onclick = function (e) {
+    var a = e.target.getAttribute('data-a');
+    if (a === 'manual') { var v = $('manual').value.trim(); if (v) { catat(v); $('manual').value = ''; } }
+    if (a === 'fotoqr') $('fqr').click();
+    if (a === 'perp') { D = { mode: 'perpanjang', metode: 'Tunai', nama: '', wa: '', foto: '', q: '', hasil: [], pilih: { id: e.target.getAttribute('data-id'), nama: e.target.getAttribute('data-nm') }, layar: 'form', sukses: null, sibuk: false }; buka('daftar'); }
+  };
+  $('fqr').onchange = function () {
+    var f = this.files[0]; this.value = ''; if (!f) return;
+    muatGambar(f, 1000).then(function (c) { var k = bacaGambar(c, c.width, c.height); if (k) catat(k); else toast('QR tidak terbaca di foto. Foto ulang lebih dekat dan terang.', true); }).catch(function () { toast('Foto tidak dapat dibuka.', true); });
+  };
+
+  /* ---------- Daftar dan perpanjang ---------- */
+  function seg(pil, aktif, aksi) { return '<div class="seg">' + pil.map(function (p) { return '<button data-a="' + aksi + '" data-v="' + p[0] + '" class="' + (aktif === p[0] ? 'on' : '') + '">' + p[1] + '</button>'; }).join('') + '</div>'; }
+  function gambarDaftar() {
+    var v = $('v-daftar'), h = seg([['baru', 'Member baru'], ['perpanjang', 'Perpanjang']], D.mode, 'mode');
+    if (D.layar === 'sukses') { v.innerHTML = suksesHtml(); return; }
+    if (D.layar === 'konfirm') { v.innerHTML = konfirmHtml(); return; }
+    if (D.mode === 'baru') {
+      h += '<div class="f"><label for="dn">Nama</label><input id="dn" type="text" value="' + esc(D.nama) + '" placeholder="Nama lengkap"></div>' +
+        '<div class="f"><label for="dw">Nomor WhatsApp aktif</label><input id="dw" type="tel" value="' + esc(D.wa) + '" placeholder="08xxxxxxxxxx"></div>' +
+        (D.foto ? '<div class="panel" style="align-items:center"><img alt="Foto wajah" src="' + esc(D.foto) + '" style="width:120px;height:150px;object-fit:cover;border-radius:14px"><button class="sec" data-a="foto">Ulangi foto</button></div>' : '<button class="sec" data-a="foto" style="min-height:84px;border-style:dashed">Ketuk untuk ambil foto wajah</button>');
+    } else {
+      h += '<div class="f"><label for="dq">Cari member (nama atau nomor WA)</label><input id="dq" type="search" value="' + esc(D.q) + '" placeholder="Minimal 2 huruf"></div><button class="sec" data-a="cari">Cari</button>';
+      if (D.hasil.length && !D.pilih) h += '<div class="list">' + D.hasil.map(function (m) { return '<button data-a="pilih" data-id="' + esc(m.id) + '" data-nm="' + esc(m.nama) + '">' + esc(m.nama) + '<br><span class="muted">' + esc(m.wa) + ' - ' + (m.aktif ? 'aktif sampai ' + fmtTgl(m.tglHabis) : 'tidak aktif') + '</span></button>'; }).join('') + '</div>';
+      if (D.pilih) h += '<div class="panel"><div class="row"><span>Member</span><span>' + esc(D.pilih.nama) + '</span></div><button class="sec" data-a="ganti">Pilih member lain</button><button class="sec" data-a="linkbaru">Kirim ulang link (membuat link baru)</button></div>';
+    }
+    h += '<div class="panel"><div class="row"><span>Iuran 1 bulan</span><span>' + rp(S.harga.member) + '</span></div>' + seg([['Tunai', 'Tunai'], ['Transfer', 'Transfer']], D.metode, 'metode') + '</div>';
+    h += '<button data-a="lanjut" style="min-height:56px">Lanjut: cek uang diterima</button>';
+    v.innerHTML = h;
+  }
+  function konfirmHtml() {
+    var baru = D.mode === 'baru', nama = baru ? D.nama : D.pilih.nama;
+    return '<div class="top"><b style="font-size:18px">Konfirmasi penerimaan uang</b></div><div class="panel" style="border:2px solid var(--biru)">' +
+      '<div class="row"><span>Nama</span><span>' + esc(nama) + '</span></div><div class="row"><span>Jenis</span><span>' + (baru ? 'Member baru' : 'Perpanjangan') + '</span></div><div class="row"><span>Metode</span><span>' + esc(D.metode) + '</span></div>' +
+      '<div class="big">' + rp(S.harga.member) + '</div></div><p class="muted">Pastikan uang sudah di tangan Anda atau dana sudah masuk rekening. Member baru aktif setelah Anda menekan tombol di bawah.</p>' +
+      '<button data-a="terima" style="min-height:56px"' + (D.sibuk ? ' disabled' : '') + '>Uang sudah saya terima</button><button class="sec" data-a="kembali" style="min-height:52px">Kembali, ada yang salah</button>';
+  }
+  function suksesHtml() {
+    var r = D.sukses, h = '<div class="panel" style="border:2px solid var(--biru)"><div class="nama" style="font-size:20px">' + esc(r.judul) + '</div><div class="row"><span>Nama</span><span>' + esc(r.nama) + '</span></div><div class="row"><span>Berlaku sampai</span><span>' + esc(fmtTgl(r.berlakuSampai)) + '</span></div>' + (r.jumlah ? '<div class="row"><span>Diterima</span><span>' + rp(r.jumlah) + '</span></div>' : '') + '</div>';
+    if (r.link) h += '<div class="panel"><b>Kirim link kartu ke member</b><p class="muted" style="margin:0">Link ini hanya tampil sekarang. Jika terlewat, gunakan Kirim ulang link.</p><input id="lk" type="text" readonly value="' + esc(r.link) + '"><a class="btn" style="display:flex;align-items:center;justify-content:center" target="_blank" rel="noopener" href="' + esc(r.wa) + '">Kirim lewat WhatsApp</a><button class="sec" data-a="salin">Salin link</button></div>';
+    return h + '<button data-a="selesai" style="min-height:56px">Selesai</button>';
+  }
+  function linkKartu(token) { return location.href.replace(/[^\/]*$/, '') + 'member.html#' + token; }
+  function waUrl(wa, nama, link) { return 'https://wa.me/' + wa + '?text=' + encodeURIComponent('Halo ' + nama + ', ini kartu member D-CHA GYM Anda. Buka link ini, lalu pasang di layar utama HP:\n' + link); }
+  $('v-daftar').oninput = function (e) { var i = e.target.id; if (i === 'dn') D.nama = e.target.value; if (i === 'dw') D.wa = e.target.value; if (i === 'dq') D.q = e.target.value; };
+  $('v-daftar').onclick = function (e) {
+    var el = e.target.closest('[data-a]'); if (!el) return; var a = el.getAttribute('data-a'), v = el.getAttribute('data-v');
+    if (a === 'mode') { D.mode = v; D.pilih = null; D.hasil = []; gambarDaftar(); }
+    if (a === 'metode') { D.metode = v; gambarDaftar(); }
+    if (a === 'foto') $('ffoto').click();
+    if (a === 'cari') kirim('cari', { q: D.q }).then(function (r) { D.hasil = r.hasil || []; D.pilih = null; gambarDaftar(); if (!D.hasil.length) toast('Tidak ada member yang cocok.', true); }).catch(jaringan);
+    if (a === 'pilih') { D.pilih = { id: el.getAttribute('data-id'), nama: el.getAttribute('data-nm') }; gambarDaftar(); }
+    if (a === 'ganti') { D.pilih = null; gambarDaftar(); }
+    if (a === 'linkbaru') kirim('aksesBaru', { id: D.pilih.id }).then(function (r) {
+      if (!r.ok) return toast(kataKunci(r), true);
+      var l = linkKartu(r.token); D.sukses = { judul: 'Link baru dibuat', nama: r.nama, berlakuSampai: '', link: l, wa: waUrl(r.wa, r.nama, l) }; D.layar = 'sukses'; gambarDaftar();
+    }).catch(jaringan);
+    if (a === 'lanjut') {
+      if (D.mode === 'baru') { if (D.nama.trim().length < 2) return toast('Isi nama.', true); if (D.wa.replace(/\D/g, '').length < 9) return toast('Isi nomor WhatsApp yang benar.', true); if (!D.foto) return toast('Ambil foto wajah dulu.', true); }
+      else if (!D.pilih) return toast('Cari dan pilih member dulu.', true);
+      D.layar = 'konfirm'; gambarDaftar();
+    }
+    if (a === 'kembali') { D.layar = 'form'; gambarDaftar(); }
+    if (a === 'terima') {
+      if (D.sibuk) return; D.sibuk = true; gambarDaftar();
+      var baru = D.mode === 'baru', p = baru ? { nama: D.nama, wa: D.wa, foto: D.foto, metode: D.metode, konfirmasi: true } : { id: D.pilih.id, metode: D.metode, konfirmasi: true };
+      kirim(baru ? 'daftar' : 'perpanjang', p).then(function (r) {
+        D.sibuk = false; if (!r.ok) { D.layar = 'form'; gambarDaftar(); return toast(kataKunci(r), true); }
+        if (baru) { var l = linkKartu(r.token); D.sukses = { judul: 'Member terdaftar', nama: r.nama, berlakuSampai: r.berlakuSampai, jumlah: r.jumlah, link: l, wa: waUrl(r.wa, r.nama, l) }; }
+        else D.sukses = { judul: 'Perpanjangan berhasil', nama: r.nama, berlakuSampai: r.berlakuSampai, jumlah: r.jumlah };
+        D.layar = 'sukses'; gambarDaftar();
+      }).catch(function (x) { D.sibuk = false; D.layar = 'form'; gambarDaftar(); jaringan(x); });
+    }
+    if (a === 'salin') { var i = $('lk'); i.select(); try { navigator.clipboard.writeText(i.value).then(function () { toast('Link disalin.'); }, function () { document.execCommand('copy'); toast('Link disalin.'); }); } catch (x) { document.execCommand('copy'); toast('Link disalin.'); } }
+    if (a === 'selesai') { D = { mode: D.mode, metode: 'Tunai', nama: '', wa: '', foto: '', q: '', hasil: [], pilih: null, layar: 'form', sukses: null, sibuk: false }; gambarDaftar(); }
+  };
+  $('ffoto').onchange = function () {
+    var f = this.files[0]; this.value = ''; if (!f) return;
+    muatGambar(f, 480).then(function (c) { D.foto = c.toDataURL('image/jpeg', 0.72); gambarDaftar(); }).catch(function () { toast('Foto tidak dapat dibuka. Coba lagi.', true); });
+  };
+
+  /* ---------- Tamu harian ---------- */
+  function gambarTamu(daftar) {
+    var v = $('v-tamu');
+    v.innerHTML = '<div class="f"><label for="tw">Nomor WhatsApp tamu</label><input id="tw" type="tel" value="' + esc(T.wa) + '" placeholder="08xxxxxxxxxx"></div><div class="f"><label for="tn">Nama</label><input id="tn" type="text" value="' + esc(T.nama) + '" placeholder="Nama tamu"></div>' +
+      '<div class="panel"><div class="row"><span>Per kedatangan</span><span>' + rp(S.harga.tamu) + '</span></div>' + seg([['Tunai', 'Tunai'], ['Transfer', 'Transfer']], T.metode, 'metode') + '</div>' +
+      '<button data-a="tamu" style="min-height:56px"' + (T.sibuk ? ' disabled' : '') + '>Terima ' + rp(S.harga.tamu) + '</button><div id="tl"></div>';
+    if (daftar) isiTamuHariIni(daftar); else kirim('kasHariIni', {}).then(function (r) { if (r.ok) isiTamuHariIni(r.transaksi); }).catch(function () { });
+  }
+  function isiTamuHariIni(tr) {
+    var l = (tr || []).filter(function (x) { return x.jenis === 'Tamu Harian' && x.status === 'Sah'; });
+    $('tl').innerHTML = '<b>Tamu hari ini (' + l.length + ')</b>' + l.slice().reverse().map(function (x) { return '<div class="row" style="padding:8px 0"><span>' + esc(x.nama) + '</span><span>' + esc(x.jam) + ', ' + esc(x.metode) + '</span></div>'; }).join('');
+  }
+  $('v-tamu').oninput = function (e) { if (e.target.id === 'tw') T.wa = e.target.value; if (e.target.id === 'tn') T.nama = e.target.value; };
+  $('v-tamu').onclick = function (e) {
+    var el = e.target.closest('[data-a]'); if (!el) return; var a = el.getAttribute('data-a');
+    if (a === 'metode') { T.metode = el.getAttribute('data-v'); gambarTamu(); }
+    if (a === 'tamu') {
+      if (T.sibuk) return; if (T.nama.trim().length < 2) return toast('Isi nama tamu.', true); if (T.wa.replace(/\D/g, '').length < 9) return toast('Isi nomor WhatsApp yang benar.', true);
+      T.sibuk = true; gambarTamu();
+      kirim('tamu', { nama: T.nama, wa: T.wa, metode: T.metode, konfirmasi: true }).then(function (r) {
+        T.sibuk = false; if (!r.ok) { gambarTamu(); return toast(kataKunci(r), true); }
+        toast('Tamu tercatat: ' + rp(r.jumlah)); T.nama = ''; T.wa = ''; gambarTamu();
+      }).catch(function (x) { T.sibuk = false; gambarTamu(); jaringan(x); });
+    }
+  };
+
+  /* ---------- Mulai ---------- */
+  var tersimpan = null; try { tersimpan = JSON.parse(localStorage.getItem(KS) || 'null'); } catch (e) { }
+  if (tersimpan && tersimpan.tok && tersimpan.exp > Date.now()) { S.tok = tersimpan.tok; S.user = tersimpan.user; if (tersimpan.harga) S.harga = tersimpan.harga; masukApp(); } else tampilLogin('');
+})();
+</script></body></html>

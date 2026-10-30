@@ -14,3 +14,20 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"S
 .pasang summary{font-weight:600;color:var(--ink);min-height:32px;cursor:pointer}
 button,.btn{min-height:52px;border:0;border-radius:14px;background:var(--biru);color:#fff;font-size:16px;font-weight:600;padding:0 18px;cursor:pointer}
 [hidden]{display:none!important}
+/* ---- halaman admin ---- */
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px}.top b{font-size:20px}
+.f{display:flex;flex-direction:column;gap:6px}.f label{font-size:13px;color:var(--muted)}
+input[type=text],input[type=tel],input[type=password],input[type=search]{min-height:48px;border:1px solid #C5CEDF;border-radius:12px;padding:0 14px;font-size:16px;background:#fff;color:var(--ink);width:100%}
+.panel{background:#fff;border:1px solid var(--brd);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.row{display:flex;justify-content:space-between;gap:12px;font-size:15px}.row span:first-child{color:var(--muted)}.row span:last-child{font-weight:600;text-align:right}
+.seg{display:flex;gap:8px}.seg button{flex:1;min-height:48px;border:1px solid #C5CEDF;background:#fff;color:var(--ink);font-size:15px}.seg button.on{border:2px solid var(--biru);background:var(--tint);color:var(--tinta)}
+button.sec{background:#fff;color:var(--ink);border:1px solid #C5CEDF}button:disabled{opacity:.5}
+.cam{height:200px;border-radius:20px;background:#0F1B33;overflow:hidden;position:relative}.cam video{width:100%;height:100%;object-fit:cover}
+.cam p{position:absolute;inset:auto 0 0 0;margin:0;padding:8px;background:rgba(15,27,51,.7);color:#fff;font-size:14px;text-align:center}
+.hasil{background:#fff;border:2px solid var(--biru);border-radius:20px;padding:16px;display:flex;gap:16px;align-items:center}.hasil.x{border-color:var(--merah)}
+.hasil img,.hasil .ph{width:104px;height:128px;border-radius:14px;object-fit:cover;background:var(--tint);color:var(--tinta);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:600;flex:none}
+.hasil.x .ph{background:var(--merahbg);color:var(--merah)}
+.badge{align-self:flex-start;background:var(--biru);color:#fff;border-radius:999px;padding:4px 12px;font-size:13px;font-weight:600}.hasil.x .badge{background:var(--merah)}
+.nav{position:sticky;bottom:0;display:flex;gap:8px;padding:8px 0 max(8px,env(safe-area-inset-bottom));background:var(--bg);margin-top:auto}.nav button{flex:1;min-height:56px;font-size:14px;background:#fff;color:var(--ink);border:1px solid #C5CEDF}.nav button.on{background:var(--biru);color:#fff;border:0}
+.gal{color:var(--merah);font-size:14px;font-weight:600;margin:0}.toast{position:fixed;left:16px;right:16px;bottom:88px;background:#0F1B33;color:#fff;padding:12px 16px;border-radius:12px;font-size:15px;text-align:center;z-index:9}.toast.e{background:var(--merah)}
+.big{font-size:32px;font-weight:600;text-align:center;padding-top:10px;border-top:1px solid var(--brd)}.list button{width:100%;text-align:left;min-height:56px;background:#fff;color:var(--ink);border:1px solid var(--brd);margin-bottom:6px}
