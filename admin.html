@@ -112,6 +112,7 @@
   }
   function catat(kode) {
     jeda = Date.now() + 2500; if (navigator.vibrate) navigator.vibrate(60);
+    $('hasil').innerHTML = '<div class="panel"><b>QR terbaca. Memeriksa member...</b><p class="muted" style="margin:0">Tunggu sebentar, jangan scan ulang.</p></div>';
     kirim('scan', { kode: kode }).then(tampilScan).catch(jaringan);
   }
   function tampilScan(r) {
@@ -233,6 +234,7 @@
   };
 
   /* ---------- Mulai ---------- */
+  ping().catch(function () { }); setInterval(function () { if (S.tok) ping().catch(function () { }); }, 240000); // menjaga server tetap siaga
   var tersimpan = null; try { tersimpan = JSON.parse(localStorage.getItem(KS) || 'null'); } catch (e) { }
   if (tersimpan && tersimpan.tok && tersimpan.exp > Date.now()) { S.tok = tersimpan.tok; S.user = tersimpan.user; if (tersimpan.harga) S.harga = tersimpan.harga; masukApp(); } else tampilLogin('');
 })();
