@@ -20,7 +20,7 @@
     <div class="cam"><video id="vid" playsinline muted></video><p id="camp">Menyalakan kamera...</p></div>
     <div id="camerr" class="gal" hidden></div>
     <div id="hasil"></div>
-    <div class="panel"><div class="f"><label for="manual">Kamera bermasalah? Ketik nomor WA atau ID member</label><input id="manual" type="tel" placeholder="08xxxxxxxxxx atau M0001"></div>
+    <div class="panel"><div class="f"><label for="manual">Kamera bermasalah? Ketik nomor WA, atau ID member (huruf M boleh diketik atau cukup angkanya, misalnya 3 untuk M0003)</label><input id="manual" type="text" autocapitalize="characters" autocomplete="off" placeholder="08xxxxxxxxxx atau M0003"></div>
     <button class="sec" data-a="manual">Cari dan catat</button><button class="sec" data-a="fotoqr">Scan lewat foto QR (cadangan)</button>
     <input id="fqr" type="file" accept="image/*" capture="environment" hidden></div>
   </div>
@@ -127,7 +127,7 @@
   }
   $('v-scan').onclick = function (e) {
     var a = e.target.getAttribute('data-a');
-    if (a === 'manual') { var v = $('manual').value.trim(); if (v) { catat(v); $('manual').value = ''; } }
+    if (a === 'manual') { var v = $('manual').value.trim().toUpperCase(); if (/^\d{1,4}$/.test(v)) v = 'M' + ('0000' + v).slice(-4); if (v) { catat(v); $('manual').value = ''; } }
     if (a === 'fotoqr') $('fqr').click();
     if (a === 'perp') { D = { mode: 'perpanjang', metode: 'Tunai', nama: '', wa: '', foto: '', q: '', hasil: [], pilih: { id: e.target.getAttribute('data-id'), nama: e.target.getAttribute('data-nm') }, layar: 'form', sukses: null, sibuk: false }; buka('daftar'); }
   };
