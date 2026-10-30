@@ -57,4 +57,4 @@
     else { try { localStorage.removeItem(K + '_d'); } catch (e) { } $('kartu').hidden = true; $('pesan').textContent = r.pesan || 'Kartu tidak dapat dibuka.'; }
   }).catch(function () { if (!cache) $('pesan').textContent = 'Tidak ada koneksi internet. Coba lagi.'; });
 })();
-</script></body></html>
+</script><script>if('serviceWorker' in navigator)addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});</script></body></html>

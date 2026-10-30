@@ -6,7 +6,7 @@
 <link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="D-CHA Admin">
-<script src="config.js"></script><script src="jsQR.js"></script><script src="app.js"></script></head>
+<script src="config.js"></script><script src="app.js"></script></head>
 <body><main class="wrap" id="app">
 <section id="v-login" hidden>
   <div class="card"><img src="icons/icon-192.png" width="96" height="96" alt="Logo D-CHA GYM"><div class="nama">Masuk Admin</div>
@@ -93,7 +93,7 @@
     }).then(function () { $('camp').textContent = 'Arahkan kamera ke QR member'; loop = requestAnimationFrame(pindai); })
       .catch(function (e) { stopKamera(); $('camerr').hidden = false; $('camerr').textContent = galat(e); $('camp').textContent = 'Kamera tidak aktif'; });
   }
-  function bacaGambar(src, w, h) { var im = src.getContext('2d').getImageData(0, 0, w, h); var r = jsQR(im.data, w, h, { inversionAttempts: 'attemptBoth' }); return r && r.data; }
+  function bacaGambar(src, w, h) { if (typeof jsQR === 'undefined') return null; var im = src.getContext('2d').getImageData(0, 0, w, h); var r = jsQR(im.data, w, h, { inversionAttempts: 'attemptBoth' }); return r && r.data; }
   function pindai() {
     if (!stream) return;
     if (vid.readyState >= 2 && Date.now() > jeda && Date.now() - t0 > 120) {
@@ -234,8 +234,9 @@
   };
 
   /* ---------- Mulai ---------- */
+  setTimeout(function () { var j = document.createElement('script'); j.src = 'jsQR.js'; document.head.appendChild(j); }, 0); // pemindai dimuat setelah layar tampil
   ping().catch(function () { }); setInterval(function () { if (S.tok) ping().catch(function () { }); }, 240000); // menjaga server tetap siaga
   var tersimpan = null; try { tersimpan = JSON.parse(localStorage.getItem(KS) || 'null'); } catch (e) { }
   if (tersimpan && tersimpan.tok && tersimpan.exp > Date.now()) { S.tok = tersimpan.tok; S.user = tersimpan.user; if (tersimpan.harga) S.harga = tersimpan.harga; masukApp(); } else tampilLogin('');
 })();
-</script></body></html>
+</script><script>if('serviceWorker' in navigator)addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});</script></body></html>

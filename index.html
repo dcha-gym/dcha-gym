@@ -11,4 +11,4 @@ function cek(){var s=document.getElementById('s'),u=document.getElementById('u')
 ping().then(function(r){s.textContent=r.ok?'Server tersambung: '+r.gym:'Server menjawab, tetapi ada masalah.';u.hidden=false;})
 .catch(function(){s.textContent='Server tidak dapat dihubungi. Periksa alamat web app di config.js dan sinyal internet.';u.hidden=false;});}
 document.getElementById('u').onclick=cek;cek();
-</script></body></html>
+</script><script>if('serviceWorker' in navigator)addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});</script></body></html>
