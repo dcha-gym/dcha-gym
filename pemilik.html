@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1D4ED8"><title>D-CHA Pemilik</title>
+<link rel="stylesheet" href="style.css"><link rel="manifest" href="manifest-pemilik.json">
+<link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="D-CHA Pemilik">
+<script src="config.js"></script><script src="app.js"></script><script src="dash.js"></script></head>
+<body><main class="wrap" id="app">
+<section id="v-login" hidden>
+  <div class="card"><img src="icons/icon-192.png" width="96" height="96" alt="Logo D-CHA GYM"><div class="nama">Masuk Pemilik</div>
+  <div class="f" style="width:100%;text-align:left"><label for="kid">Kode pengguna</label><input id="kid" type="text" autocapitalize="characters" autocomplete="username" placeholder="Contoh: OWN1"></div>
+  <div class="f" style="width:100%;text-align:left"><label for="pin">PIN (6 angka)</label><input id="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password"></div>
+  <p class="gal" id="lerr"></p><button id="masuk" style="width:100%">Masuk</button></div>
+</section>
+<section id="v-main" hidden>
+  <div class="top"><b id="judul">Kas harian</b><button class="sec" id="keluar" style="min-height:40px;padding:0 12px;font-size:14px">Keluar</button></div>
+  <div id="v-kas" class="v" style="display:flex;flex-direction:column;gap:14px"></div>
+  <div id="v-dash" class="v" style="display:none;flex-direction:column;gap:14px"></div>
+  <nav class="nav" id="nav"><button data-n="kas" class="on">Kas</button><button data-n="dash">Grafik</button></nav>
+</section>
+</main>
+<script>
+(function () {
+  var $ = function (i) { return document.getElementById(i); }, KS = 'dcha_pemilik', S = { tok: '' };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var msg = function (r) { return r && r.pesan ? r.pesan : 'Terjadi kesalahan.'; };
+  function toast(t, e) { var x = document.createElement('div'); x.className = 'toast' + (e ? ' e' : ''); x.textContent = t; document.body.appendChild(x); setTimeout(function () { x.remove(); }, 3600); }
+  function kirim(aksi, d) { d = d || {}; d.aksi = aksi; d.token = S.tok; return api(d).then(function (r) { if (r && r.kode === 'SESI') { keluar('Sesi habis. Silakan masuk lagi.'); throw new Error('sesi'); } return r; }); }
+  function jaringan(e) { if (!e || e.message !== 'sesi') toast('Tidak ada koneksi atau server sibuk. Coba lagi.', true); }
+  function tampilLogin(p) { $('v-main').hidden = true; $('v-login').hidden = false; $('lerr').textContent = p || ''; try { $('kid').value = localStorage.getItem(KS + '_id') || ''; } catch (e) { } $('pin').value = ''; }
+  function keluar(p) { try { if (S.tok) api({ aksi: 'logout', token: S.tok }).catch(function () { }); localStorage.removeItem(KS); } catch (e) { } S.tok = ''; tampilLogin(p); }
+  function masukApp() { $('v-login').hidden = true; $('v-main').hidden = false; buka('kas'); }
+  $('masuk').onclick = function () {
+    var id = $('kid').value.trim().toUpperCase(), pin = $('pin').value.trim(), b = $('masuk');
+    if (!id || !/^\d{6}$/.test(pin)) { $('lerr').textContent = 'Isi kode pengguna dan PIN 6 angka.'; return; }
+    b.disabled = true; $('lerr').textContent = '';
+    api({ aksi: 'login', id: id, pin: pin }).then(function (r) {
+      b.disabled = false;
+      if (!r.ok) { $('lerr').textContent = msg(r); $('pin').value = ''; return; }
+      if (r.peran !== 'Pemilik') { api({ aksi: 'logout', token: r.token }).catch(function () { }); $('lerr').textContent = 'Akun ini bukan akun Pemilik.'; return; }
+      S.tok = r.token; try { localStorage.setItem(KS, JSON.stringify({ tok: r.token, exp: Date.now() + 11 * 3600000 })); localStorage.setItem(KS + '_id', id); } catch (e) { } masukApp();
+    }).catch(function () { b.disabled = false; $('lerr').textContent = 'Tidak ada koneksi. Coba lagi.'; });
+  };
+  $('keluar').onclick = function () { keluar(''); };
+  $('nav').onclick = function (e) { var n = e.target.getAttribute('data-n'); if (n) buka(n); };
+  function buka(n) {
+    ['kas', 'dash'].forEach(function (x) { $('v-' + x).style.display = x === n ? 'flex' : 'none'; });
+    document.querySelectorAll('#nav button').forEach(function (b) { b.className = b.getAttribute('data-n') === n ? 'on' : ''; });
+    $('judul').textContent = n === 'kas' ? 'Kas harian' : 'Dashboard';
+    if (n === 'kas') muatKas(P.tgl); else muatDash();
+  }
+
+  /* ---------- Kas ---------- */
+  function hariIniLokal() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  var P = { tgl: hariIniLokal(), data: null, cocok: 'Cocok', catatan: '', sibuk: false };
+  var baris = function (a, b, c) { return '<div class="row"><span>' + esc(a) + '</span><span' + (c ? ' class="' + c + '"' : '') + '>' + esc(b) + '</span></div>'; };
+  function muatKas(tgl) {
+    P.tgl = tgl || P.tgl; $('v-kas').innerHTML = '<p class="muted">Memuat kas...</p>';
+    kirim('kasHariIni', { tanggal: P.tgl }).then(function (r) { if (!r.ok) return toast(msg(r), true); P.data = r; gambarKas(); }).catch(jaringan);
+  }
+  function gambarKas() {
+    var r = P.data, t = r.tutup, kunci = !!(t && t.terkunci), dihitung = !!(t && t.dihitungOleh);
+    var h = '<div class="panel"><div class="f"><label for="tgl">Tanggal</label><input id="tgl" type="date" value="' + esc(P.tgl) + '" style="min-height:48px;border:1px solid #C5CEDF;border-radius:12px;padding:0 14px;font-size:16px;background:#fff"></div><button class="sec" data-a="muat">Tampilkan tanggal ini</button></div>';
+    h += '<div class="panel"><b>Pemasukan (otomatis)</b>' + baris('Member baru', rp(r.memberBaru)) + baris('Perpanjangan', rp(r.perpanjangan)) + baris('Tamu harian', rp(r.tamu)) + '<div style="border-top:1px solid var(--brd);padding-top:8px;display:flex;flex-direction:column;gap:10px">' + baris('Tunai', rp(r.tunai)) + baris('Transfer', rp(r.transfer)) + '</div></div>';
+    h += '<div class="panel"><b>Uang keluar dari laci</b>' + (r.keluar.length ? r.keluar.map(function (x) { return baris(x.alasan + ' (' + x.jam + ', ' + x.oleh + ')', rp(x.jumlah)); }).join('') : '<p class="muted" style="margin:0">Tidak ada.</p>') + '</div>';
+    if (dihitung) h += '<div class="panel"' + (kunci ? ' style="border:2px solid var(--biru)"' : '') + '><b>Hitungan admin (' + esc(t.dihitungOleh) + ')</b>' + baris('Tunai seharusnya', rp(r.tunaiSeharusnya)) + baris('Dihitung admin', rp(t.tunaiDihitung)) + baris('Selisih', (t.selisih < 0 ? '-' : '') + rp(Math.abs(t.selisih)), t.selisih ? 'neg' : '') + (t.alasanSelisih ? '<p class="muted" style="margin:0">Alasan: ' + esc(t.alasanSelisih) + '</p>' : '') + '</div>';
+    else h += '<div class="panel"><b>Admin belum menghitung kas tanggal ini</b><p class="muted" style="margin:0">Penutupan baru bisa dilakukan setelah admin menekan Kirim ke pemilik.</p></div>';
+    if (kunci) h += '<div class="panel" style="border:2px solid var(--biru)"><b>Sudah ditutup dan dikunci</b>' + baris('Oleh', t.ditutupOleh) + baris('Transfer', t.transferCocok || '-') + '</div>';
+    else if (dihitung) {
+      h += '<div class="panel"><b>Transfer masuk: ' + rp(r.transfer) + '</b><p class="muted" style="margin:0">Cocokkan dengan mutasi rekening Anda.</p><div class="seg"><button data-a="cocok" data-v="Cocok" class="' + (P.cocok === 'Cocok' ? 'on' : '') + '">Cocok</button><button data-a="cocok" data-v="Tidak cocok" class="' + (P.cocok === 'Tidak cocok' ? 'on' : '') + '">Tidak cocok</button></div>' + (P.cocok === 'Tidak cocok' ? '<div class="f"><label for="cat">Catatan (wajib)</label><input id="cat" type="text" value="' + esc(P.catatan) + '" placeholder="Jelaskan ketidakcocokan"></div>' : '') + '</div>';
+      h += '<button data-a="tutup" style="min-height:56px"' + (P.sibuk ? ' disabled' : '') + '>Tutup dan kunci hari ini</button><p class="muted">Setelah dikunci, transaksi pada tanggal itu tidak bisa diubah atau ditambah.</p>';
+    }
+    h += '<div class="panel"><b>Transaksi (' + r.transaksi.length + ')</b>' + (r.transaksi.length ? r.transaksi.slice().reverse().map(function (x) {
+      var sah = x.status === 'Sah';
+      return '<div class="lr"><div>' + esc(x.nama) + '<small>' + esc(x.jam) + ' - ' + esc(x.jenis) + ', ' + esc(x.metode) + (sah ? '' : ' (DIBATALKAN)') + '</small></div><div style="display:flex;align-items:center;gap:8px"><b' + (sah ? '' : ' style="text-decoration:line-through"') + '>' + rp(x.jumlah) + '</b>' + (sah && !kunci ? '<button class="sec" data-a="batal" data-id="' + esc(x.id) + '" data-nm="' + esc(x.nama) + '" data-j="' + x.jumlah + '">Batalkan</button>' : '') + '</div></div>';
+    }).join('') : '<p class="muted" style="margin:0">Belum ada.</p>') + '</div>';
+    $('v-kas').innerHTML = h;
+  }
+  $('v-kas').oninput = function (e) { if (e.target.id === 'tgl' && e.target.value) P.tgl = e.target.value; if (e.target.id === 'cat') P.catatan = e.target.value; };
+  $('v-kas').onclick = function (e) {
+    var el = e.target.closest('[data-a]'); if (!el || P.sibuk) return; var a = el.getAttribute('data-a');
+    if (a === 'muat') muatKas(P.tgl);
+    if (a === 'cocok') { P.cocok = el.getAttribute('data-v'); gambarKas(); }
+    if (a === 'batal') dialogBatal(el.getAttribute('data-id'), el.getAttribute('data-nm'), el.getAttribute('data-j'));
+    if (a === 'tutup') {
+      if (P.cocok === 'Tidak cocok' && P.catatan.trim().length < 3) return toast('Isi catatan ketidakcocokan transfer.', true);
+      if (!confirm('Tutup dan kunci kas tanggal ' + P.tgl + '? Setelah dikunci tidak bisa diubah.')) return;
+      P.sibuk = true; gambarKas();
+      kirim('kasTutup', { tanggal: P.tgl, transferCocok: P.cocok, catatan: P.catatan }).then(function (r) { P.sibuk = false; if (!r.ok) { gambarKas(); return toast(msg(r), true); } P.cocok = 'Cocok'; P.catatan = ''; toast('Kas dikunci.'); muatKas(); }).catch(function (x) { P.sibuk = false; gambarKas(); jaringan(x); });
+    }
+  };
+  function dialogBatal(id, nama, j) {
+    var o = document.createElement('div'); o.className = 'ov';
+    o.innerHTML = '<div class="panel"><b>Batalkan transaksi?</b><p class="muted" style="margin:0">' + esc(nama) + ' - ' + rp(j) + '. Jika ini iuran member, masa aktifnya dikembalikan seperti sebelum transaksi.</p><div class="f"><label for="ab">Alasan pembatalan (wajib)</label><input id="ab" type="text" placeholder="Contoh: salah input nominal"></div><button id="by">Ya, batalkan transaksi</button><button class="sec" id="bn">Tidak jadi</button></div>';
+    document.body.appendChild(o);
+    o.querySelector('#bn').onclick = function () { o.remove(); };
+    o.querySelector('#by').onclick = function () {
+      var al = o.querySelector('#ab').value.trim(); if (al.length < 3) return toast('Isi alasan pembatalan.', true);
+      o.querySelector('#by').disabled = true;
+      kirim('batalkan', { id: id, alasan: al }).then(function (r) { o.remove(); if (!r.ok) return toast(msg(r), true); toast('Transaksi dibatalkan.'); muatKas(); }).catch(function (x) { o.remove(); jaringan(x); });
+    };
+  }
+  function muatDash() { $('v-dash').innerHTML = '<p class="muted">Memuat dashboard...</p>'; kirim('dashboard', {}).then(function (r) { if (!r.ok) return toast(msg(r), true); renderDash($('v-dash'), r); }).catch(jaringan); }
+
+  var tersimpan = null; try { tersimpan = JSON.parse(localStorage.getItem(KS) || 'null'); } catch (e) { }
+  ping().catch(function () { });
+  if (tersimpan && tersimpan.tok && tersimpan.exp > Date.now()) { S.tok = tersimpan.tok; masukApp(); } else tampilLogin('');
+})();
+</script><script>if('serviceWorker' in navigator)addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});</script></body></html>

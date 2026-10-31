@@ -6,7 +6,7 @@
 <link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="D-CHA Admin">
-<script src="config.js"></script><script src="app.js"></script></head>
+<script src="config.js"></script><script src="app.js"></script><script src="dash.js"></script></head>
 <body><main class="wrap" id="app">
 <section id="v-login" hidden>
   <div class="card"><img src="icons/icon-192.png" width="96" height="96" alt="Logo D-CHA GYM"><div class="nama">Masuk Admin</div>
@@ -26,7 +26,9 @@
   </div>
   <div id="v-daftar" class="v" style="display:none;flex-direction:column;gap:14px"></div>
   <div id="v-tamu" class="v" style="display:none;flex-direction:column;gap:14px"></div>
-  <nav class="nav" id="nav"><button data-n="scan" class="on">Scan</button><button data-n="daftar">Daftar</button><button data-n="tamu">Tamu</button></nav>
+  <div id="v-kas" class="v" style="display:none;flex-direction:column;gap:14px"></div>
+  <div id="v-dash" class="v" style="display:none;flex-direction:column;gap:14px"></div>
+  <nav class="nav" id="nav"><button data-n="scan" class="on">Scan</button><button data-n="daftar">Daftar</button><button data-n="tamu">Tamu</button><button data-n="kas">Kas</button><button data-n="dash">Grafik</button></nav>
 </section>
 <input id="ffoto" type="file" accept="image/*" capture="user" hidden>
 </main>
@@ -65,12 +67,12 @@
   $('keluar').onclick = function () { keluar(''); };
 
   /* ---------- Navigasi ---------- */
-  var JUDUL = { scan: 'Scan presensi', daftar: 'Daftar / perpanjang', tamu: 'Catat tamu harian' };
+  var JUDUL = { scan: 'Scan presensi', daftar: 'Daftar / perpanjang', tamu: 'Catat tamu harian', kas: 'Tutup kas harian', dash: 'Dashboard' };
   function buka(n) {
-    ['scan', 'daftar', 'tamu'].forEach(function (x) { var v = $('v-' + x); v.style.display = x === n ? 'flex' : 'none'; });
+    ['scan', 'daftar', 'tamu', 'kas', 'dash'].forEach(function (x) { var v = $('v-' + x); v.style.display = x === n ? 'flex' : 'none'; });
     document.querySelectorAll('#nav button').forEach(function (b) { b.className = b.getAttribute('data-n') === n ? 'on' : ''; });
     $('judul').textContent = JUDUL[n]; stopKamera();
-    if (n === 'scan') mulaiKamera(); if (n === 'daftar') gambarDaftar(); if (n === 'tamu') gambarTamu();
+    if (n === 'scan') mulaiKamera(); if (n === 'daftar') gambarDaftar(); if (n === 'tamu') gambarTamu(); if (n === 'kas') muatKas(); if (n === 'dash') muatDash();
   }
   $('nav').onclick = function (e) { var n = e.target.getAttribute('data-n'); if (n) buka(n); };
 
@@ -232,6 +234,45 @@
       }).catch(function (x) { T.sibuk = false; gambarTamu(); jaringan(x); });
     }
   };
+
+  /* ---------- Kas harian ---------- */
+  var K = { data: null, laci: '', alasan: '', kj: '', ka: '', sibuk: false };
+  var baris = function (a, b, c) { return '<div class="row"><span>' + esc(a) + '</span><span' + (c ? ' class="' + c + '"' : '') + '>' + esc(b) + '</span></div>'; };
+  var angka = function (v) { return parseInt(String(v).replace(/\D/g, ''), 10) || 0; };
+  function muatKas() { $('v-kas').innerHTML = '<p class="muted">Memuat kas hari ini...</p>'; kirim('kasHariIni', {}).then(function (r) { if (!r.ok) return toast(kataKunci(r), true); K.data = r; gambarKas(); }).catch(jaringan); }
+  function gambarKas() {
+    var r = K.data, t = r.tutup, kunci = !!(t && t.terkunci), h = '';
+    h += '<div class="panel"><b>Pemasukan hari ini (otomatis)</b>' + baris('Member baru', rp(r.memberBaru)) + baris('Perpanjangan', rp(r.perpanjangan)) + baris('Tamu harian', rp(r.tamu)) + '<div style="border-top:1px solid var(--brd);padding-top:8px;display:flex;flex-direction:column;gap:10px">' + baris('Tunai', rp(r.tunai)) + baris('Transfer', rp(r.transfer)) + '</div></div>';
+    h += '<div class="panel"><b>Uang keluar dari laci</b>' + (r.keluar.length ? r.keluar.map(function (x) { return baris(x.alasan + ' (' + x.jam + ')', rp(x.jumlah)); }).join('') : '<p class="muted" style="margin:0">Belum ada.</p>');
+    if (!kunci) h += '<div class="f"><label for="kj">Jumlah (Rp)</label><input id="kj" type="text" inputmode="numeric" value="' + esc(K.kj) + '" placeholder="Contoh: 25000"></div><div class="f"><label for="ka">Alasan</label><input id="ka" type="text" value="' + esc(K.ka) + '" placeholder="Contoh: beli galon"></div><button class="sec" data-a="keluar">Catat uang keluar</button>';
+    h += '</div>';
+    if (kunci) h += '<div class="panel" style="border:2px solid var(--biru)"><b>Kas hari ini sudah ditutup dan dikunci</b>' + baris('Tunai dihitung', rp(t.tunaiDihitung)) + baris('Selisih', rp(t.selisih), t.selisih ? 'neg' : '') + baris('Dikunci oleh', t.ditutupOleh) + '</div>';
+    else {
+      h += '<div class="panel"><div class="f"><label for="kh" style="font-size:15px;font-weight:600;color:var(--ink)">Uang tunai di laci (hitung fisik)</label><input id="kh" type="text" inputmode="numeric" value="' + esc(K.laci) + '" placeholder="Ketik jumlah uang tunai"></div>' + baris('Seharusnya ada', rp(r.tunaiSeharusnya)) + '<div class="row"><span>Selisih</span><span id="ks">-</span></div><div class="f" id="kalw" hidden><label for="kal">Alasan selisih (wajib diisi)</label><input id="kal" type="text" value="' + esc(K.alasan) + '" placeholder="Tulis penyebab selisih"></div></div>';
+      if (t && t.dihitungOleh) h += '<p class="muted">Sudah dihitung oleh ' + esc(t.dihitungOleh) + ' (' + rp(t.tunaiDihitung) + '). Menunggu pemilik menutup. Anda boleh menghitung ulang.</p>';
+      h += '<button data-a="hitung" style="min-height:56px"' + (K.sibuk ? ' disabled' : '') + '>Kirim ke pemilik</button>';
+    }
+    $('v-kas').innerHTML = h; selisihKas();
+  }
+  function selisihKas() {
+    if (!K.data || !$('ks')) return;
+    var sel = angka(K.laci) - K.data.tunaiSeharusnya, ada = K.laci !== '';
+    $('ks').textContent = ada ? (sel < 0 ? '-' : '') + rp(Math.abs(sel)) : '-'; $('ks').className = sel ? 'neg' : ''; $('kalw').hidden = !(ada && sel);
+  }
+  $('v-kas').oninput = function (e) { var i = e.target.id; if (i === 'kh') { K.laci = e.target.value; selisihKas(); } if (i === 'kal') K.alasan = e.target.value; if (i === 'kj') K.kj = e.target.value; if (i === 'ka') K.ka = e.target.value; };
+  $('v-kas').onclick = function (e) {
+    var a = e.target.getAttribute('data-a'); if (!a || K.sibuk) return;
+    if (a === 'keluar') {
+      if (!angka(K.kj)) return toast('Isi jumlah uang keluar.', true); if (K.ka.trim().length < 3) return toast('Isi alasan uang keluar.', true);
+      K.sibuk = true; kirim('kasKeluar', { jumlah: angka(K.kj), alasan: K.ka }).then(function (r) { K.sibuk = false; if (!r.ok) return toast(kataKunci(r), true); K.kj = ''; K.ka = ''; toast('Uang keluar dicatat.'); muatKas(); }).catch(function (x) { K.sibuk = false; jaringan(x); });
+    }
+    if (a === 'hitung') {
+      if (K.laci === '') return toast('Ketik jumlah uang tunai di laci.', true);
+      K.sibuk = true; gambarKas();
+      kirim('kasHitung', { tunaiDihitung: angka(K.laci), alasan: K.alasan }).then(function (r) { K.sibuk = false; if (!r.ok) { gambarKas(); return toast(kataKunci(r), true); } toast(r.selisih ? 'Terkirim. Ada selisih ' + rp(Math.abs(r.selisih)) + '.' : 'Terkirim ke pemilik. Kas cocok.'); K.laci = ''; K.alasan = ''; muatKas(); }).catch(function (x) { K.sibuk = false; gambarKas(); jaringan(x); });
+    }
+  };
+  function muatDash() { $('v-dash').innerHTML = '<p class="muted">Memuat dashboard...</p>'; kirim('dashboard', {}).then(function (r) { if (!r.ok) return toast(kataKunci(r), true); renderDash($('v-dash'), r); }).catch(jaringan); }
 
   /* ---------- Mulai ---------- */
   setTimeout(function () { var j = document.createElement('script'); j.src = 'jsQR.js'; document.head.appendChild(j); }, 0); // pemindai dimuat setelah layar tampil
