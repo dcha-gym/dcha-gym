@@ -1,60 +1,97 @@
 <!doctype html>
 <html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#1D4ED8"><title>Kartu Member</title>
-<link rel="stylesheet" href="style.css"><link rel="icon" href="icons/icon-192.png">
+<meta name="theme-color" content="#0B0B0C"><title>Kartu Member D-CHA GYM</title>
+<link rel="stylesheet" href="member.css"><link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="D-CHA GYM">
 <script src="config.js"></script><script src="qrcode.js"></script><script src="app.js"></script></head>
 <body><main class="wrap">
-<div class="brand" id="gym">D-CHA GYM</div>
+<div class="bar"><img src="icons/icon-192.png" alt="Logo D-CHA GYM"><b>D-CHA</b><span>GYM</span><i>Member</i></div>
 <section class="card" id="kartu" hidden>
-<div class="avatar" id="av"></div>
-<div><div class="nama" id="nama"></div><p class="muted" id="id"></p></div>
-<div class="chip" id="chip"></div>
-<div class="qr" id="qr" role="img" aria-label="QR code member" hidden></div>
-<div class="peringatan" id="warn" hidden></div>
-<div class="tgl" id="tgl"></div>
+  <div class="foto"><img id="foto" alt="Foto member" hidden><svg id="sil" viewBox="0 0 132 165" role="img" aria-label="Foto belum tersedia"><rect width="132" height="165" fill="#222226"/><circle cx="66" cy="62" r="26" fill="#5A5A62"/><path d="M18 165c0-34 20-54 48-54s48 20 48 54z" fill="#5A5A62"/></svg></div>
+  <div><div class="nama" id="nama"></div><p class="mu" id="id"></p></div>
+  <span class="chip" id="chip"></span>
+  <div class="qr" id="qr" role="img" aria-label="QR code member" hidden></div>
+  <div class="lock" id="lock" hidden><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FF6B70" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Terkunci"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><b>QR disembunyikan</b><span>Aktif lagi setelah iuran dibayar</span></div>
+  <div class="warn" id="warn" hidden></div>
+  <div><div class="tgl" id="tgl"></div><div class="sub" id="sub"></div></div>
 </section>
-<p class="muted" id="pesan">Memuat kartu...</p>
+<section class="card" id="mati" hidden>
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#FF6B70" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Peringatan"><path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+  <div class="nama" style="font-size:20px">Link kartu ini tidak aktif</div><p class="mu" id="mt"></p>
+  <p class="mu">Kartu ini mungkin sudah diganti dengan link baru, atau link-nya terpotong saat dikirim. Minta admin gym mengirim link kartu yang baru.</p>
+</section>
+<p class="mu" id="pesan" style="text-align:center">Memuat kartu...</p>
+<a class="btn" id="wa" hidden target="_blank" rel="noopener"></a>
+<button class="btn o" id="ulang" hidden>Coba lagi</button>
 <details class="pasang"><summary>Pasang di layar utama HP</summary>
 <p><b>iPhone (Safari):</b> ketuk tombol Bagikan, pilih Tambah ke Layar Utama.</p>
 <p><b>Android (Chrome):</b> ketuk menu titik tiga, pilih Instal aplikasi atau Tambahkan ke layar utama.</p>
-<button id="pasangBtn" hidden>Pasang sekarang</button></details>
+<button class="btn" id="pasangBtn" hidden>Pasang sekarang</button></details>
 </main>
 <script>
 (function () {
-  var K = 'dcha_member', $ = function (i) { return document.getElementById(i); }, tok = (location.hash || '').slice(1);
-  try { if (tok) localStorage.setItem(K + '_t', tok); else tok = localStorage.getItem(K + '_t') || ''; } catch (e) { }
+  var K = 'dcha_member', $ = function (i) { return document.getElementById(i); }, tok = (location.hash || '').slice(1), WA = '', cache = null;
+  var dir = location.href.split('#')[0].replace(/[^\/]*$/, '');
+  // Kode kartu disimpan di dua tempat (localStorage dan cookie) supaya tidak mudah hilang
+  function simpanTok(t) {
+    try { localStorage.setItem(K + '_t', t); } catch (e) { }
+    try { document.cookie = 'dchat=' + encodeURIComponent(t) + ';max-age=31536000;path=' + dir.replace(/^https?:\/\/[^\/]+/, '') + ';SameSite=Lax' + (location.protocol === 'https:' ? ';Secure' : ''); } catch (e) { }
+  }
+  function ambilTok() {
+    var t = ''; try { t = localStorage.getItem(K + '_t') || ''; } catch (e) { }
+    if (!t) { var m = document.cookie.match(/(?:^|; )dchat=([^;]*)/); if (m) t = decodeURIComponent(m[1]); }
+    return t;
+  }
+  if (tok) simpanTok(tok); else tok = ambilTok();
+  try { WA = localStorage.getItem(K + '_wa') || ''; cache = JSON.parse(localStorage.getItem(K + '_d') || 'null'); } catch (e) { }
   // Manifest dinamis: ikon di layar utama membawa link pribadi member
-  var base = location.href.split('#')[0], dir = base.replace(/[^\/]*$/, '');
-  var mf = { name: 'D-CHA GYM', short_name: 'D-CHA GYM', start_url: base + (tok ? '#' + tok : ''), scope: dir, display: 'standalone', background_color: '#F5F7FB', theme_color: '#1D4ED8',
+  var mf = { name: 'D-CHA GYM', short_name: 'D-CHA GYM', start_url: dir + 'member.html' + (tok ? '#' + tok : ''), scope: dir, display: 'standalone', background_color: '#0B0B0C', theme_color: '#0B0B0C',
     icons: [{ src: dir + 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: dir + 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }, { src: dir + 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }] };
   var l = document.createElement('link'); l.rel = 'manifest'; l.href = URL.createObjectURL(new Blob([JSON.stringify(mf)], { type: 'application/manifest+json' })); document.head.appendChild(l);
   var tunda; window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); tunda = e; $('pasangBtn').hidden = false; });
   $('pasangBtn').onclick = function () { if (tunda) tunda.prompt(); };
 
-  function tampil(d, offline) {
-    $('gym').textContent = d.gym || CFG.NAMA;
-    var aktif = d.tglHabis && d.tglHabis > hariIni() && (offline ? true : d.aktif);
-    $('kartu').hidden = false; $('pesan').textContent = '';
+  function tombolWa(teks, label) { var b = $('wa'); if (!WA) { b.hidden = true; return; } b.href = 'https://wa.me/' + WA + '?text=' + encodeURIComponent(teks); b.textContent = label; b.hidden = false; }
+  function tampil(d, off) {
+    var aktif = !!d.tglHabis && d.tglHabis > hariIni() && (off ? true : d.aktif);
+    $('mati').hidden = true; $('kartu').hidden = false; $('ulang').hidden = true; $('kartu').className = 'card' + (aktif ? '' : ' x');
+    $('pesan').textContent = off ? 'Tanpa internet atau server sedang sibuk. Menampilkan kartu tersimpan.' : '';
     $('nama').textContent = d.nama; $('id').textContent = 'ID ' + d.id;
-    $('av').textContent = String(d.nama).split(/\s+/).slice(0, 2).map(function (x) { return x.charAt(0); }).join('').toUpperCase();
-    var chip = $('chip'); chip.textContent = aktif ? 'Member aktif' : 'Masa aktif habis'; chip.className = 'chip' + (aktif ? '' : ' habis');
-    var qr = $('qr'); qr.hidden = !(aktif && d.kodeQr); qr.innerHTML = '';
+    if (d.foto) { $('foto').src = d.foto; $('foto').hidden = false; $('sil').hidden = true; } else { $('foto').hidden = true; $('sil').hidden = false; }
+    var c = $('chip'); c.textContent = aktif ? 'MEMBER AKTIF' : 'MASA AKTIF HABIS'; c.className = 'chip' + (aktif ? '' : ' x');
+    var qr = $('qr'); qr.innerHTML = ''; qr.hidden = !(aktif && d.kodeQr); $('lock').hidden = aktif;
     if (!qr.hidden) { var q = qrcode(0, 'M'); q.addData(d.kodeQr); q.make(); qr.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); }
     var sisa = d.tglHabis ? Math.round((new Date(d.tglHabis + 'T00:00:00') - new Date(hariIni() + 'T00:00:00')) / 86400000) : 0;
     var w = $('warn'); w.hidden = !(aktif && sisa <= 7); w.textContent = 'Masa aktif tinggal ' + sisa + ' hari. Segera perpanjang di kasir.';
-    $('tgl').textContent = aktif ? 'Berlaku sampai ' + fmtTgl(d.tglHabis) : 'Berakhir ' + fmtTgl(d.tglHabis) + '. Bayar di kasir untuk mengaktifkan lagi.';
-    if (offline) $('pesan').textContent = 'Tanpa internet. Menampilkan kartu tersimpan.';
+    $('tgl').textContent = aktif ? 'Berlaku sampai ' + fmtTgl(d.tglHabis) : 'Berakhir ' + fmtTgl(d.tglHabis);
+    $('sub').textContent = aktif ? '' : (sisa < 0 ? 'Sudah ' + (-sisa) + ' hari lalu' : 'Berakhir hari ini');
+    var sapa = 'Halo admin D-CHA GYM, saya ' + d.nama + ' (ID ' + d.id + '). ';
+    if (!aktif) tombolWa(sapa + 'Masa aktif member saya sudah habis, saya ingin memperpanjang.', 'Hubungi admin lewat WhatsApp');
+    else if (sisa <= 7) tombolWa(sapa + 'Saya ingin memperpanjang member sebelum habis.', 'Perpanjang lewat WhatsApp');
+    else $('wa').hidden = true;
   }
-  var cache = null; try { cache = JSON.parse(localStorage.getItem(K + '_d') || 'null'); } catch (e) { }
-  if (!tok) { $('pesan').textContent = 'Buka kartu lewat link pribadi dari admin gym.'; return; }
+  function linkMati(pesan, nama) {
+    $('kartu').hidden = true; $('mati').hidden = false; $('mt').textContent = pesan || ''; $('pesan').textContent = ''; $('ulang').hidden = true;
+    tombolWa('Halo admin D-CHA GYM, link kartu member saya' + (nama ? ' (' + nama + ')' : '') + ' tidak aktif. Mohon kirim link kartu yang baru.', 'Minta link baru lewat WhatsApp');
+  }
+  function muat(coba) {
+    function galat() {
+      if (cache) tampil(cache, true); else { $('pesan').textContent = 'Server sedang sibuk atau tidak ada koneksi internet.'; $('ulang').hidden = false; }
+      if (coba < 1) setTimeout(function () { muat(coba + 1); }, 3000);
+    }
+    api({ aksi: 'kartu', mt: tok }).then(function (r) {
+      if (r && r.wa) { WA = r.wa; try { localStorage.setItem(K + '_wa', WA); } catch (e) { } }
+      if (r && r.ok) { cache = r; try { localStorage.setItem(K + '_d', JSON.stringify(r)); } catch (e) { } tampil(r, false); }
+      else if (r && r.kode === 'LINK') { var nm = cache && cache.nama; cache = null; try { localStorage.removeItem(K + '_d'); } catch (e) { } linkMati(r.pesan, nm); }
+      else galat(); // gangguan server sementara: kartu tersimpan jangan dihapus
+    }).catch(galat);
+  }
+  $('ulang').onclick = function () { $('ulang').hidden = true; $('pesan').textContent = 'Memuat kartu...'; muat(1); };
+  if (!tok) { $('pesan').textContent = 'Buka kartu lewat link pribadi dari admin gym.'; tombolWa('Halo admin D-CHA GYM, saya belum punya link kartu member. Mohon dikirimkan.', 'Minta link kartu lewat WhatsApp'); return; }
   if (cache) tampil(cache, true);
-  api({ aksi: 'kartu', mt: tok }).then(function (r) {
-    if (r.ok) { try { localStorage.setItem(K + '_d', JSON.stringify(r)); } catch (e) { } tampil(r, false); }
-    else { try { localStorage.removeItem(K + '_d'); } catch (e) { } $('kartu').hidden = true; $('pesan').textContent = r.pesan || 'Kartu tidak dapat dibuka.'; }
-  }).catch(function () { if (!cache) $('pesan').textContent = 'Tidak ada koneksi internet. Coba lagi.'; });
+  muat(0);
 })();
 </script><script>if('serviceWorker' in navigator)addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});</script></body></html>

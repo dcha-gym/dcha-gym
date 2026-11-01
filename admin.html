@@ -122,16 +122,25 @@
     if (!r.ok) { b.innerHTML = '<div class="hasil x"><div class="ph">!</div><div><div class="nama" style="font-size:18px">' + esc(kataKunci(r)) + '</div><p class="muted">Coba scan ulang atau ketik nomor WA.</p></div></div>'; return; }
     var foto = r.foto ? '<img alt="Foto member" src="' + esc(r.foto) + '">' : '<div class="ph">' + esc(String(r.nama).charAt(0)) + '</div>';
     if (!r.aktif) {
-      b.innerHTML = '<div class="hasil x">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">TIDAK AKTIF</span><p class="muted">Berakhir ' + esc(fmtTgl(r.tglHabis)) + '</p></div></div><p class="muted">Presensi tidak dicatat. Tawarkan perpanjang atau catat sebagai tamu.</p><button data-a="perp" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Perpanjang sekarang</button>';
+      b.innerHTML = '<div class="hasil x">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">TIDAK AKTIF</span><p class="muted">Berakhir ' + esc(fmtTgl(r.tglHabis)) + '</p></div></div><p class="muted">Presensi tidak dicatat. Tawarkan perpanjang atau catat sebagai tamu.</p><button data-a="perp" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Perpanjang sekarang</button><button class="sec" data-a="linkbaru2" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Buat link kartu baru</button>';
       return;
     }
     var aksi = r.duplikat ? 'Sudah tercatat ' + r.aksi + ' pukul ' + r.jam : (r.aksi === 'MASUK' ? 'Masuk ' : 'Keluar ') + r.jam;
-    b.innerHTML = '<div class="hasil">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">AKTIF</span><p class="muted">Sampai ' + esc(fmtTgl(r.tglHabis)) + '</p><p style="margin:0;font-weight:600">' + esc(aksi) + '</p></div></div><p class="muted">Cocokkan wajah dengan foto sebelum mempersilakan masuk.</p>';
+    b.innerHTML = '<div class="hasil">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">AKTIF</span><p class="muted">Sampai ' + esc(fmtTgl(r.tglHabis)) + '</p><p style="margin:0;font-weight:600">' + esc(aksi) + '</p></div></div><p class="muted">Cocokkan wajah dengan foto sebelum mempersilakan masuk.</p><button class="sec" data-a="linkbaru2" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Buat link kartu baru</button>';
   }
   $('v-scan').onclick = function (e) {
     var a = e.target.getAttribute('data-a');
     if (a === 'manual') { var v = $('manual').value.trim().toUpperCase(); if (/^\d{1,4}$/.test(v)) v = 'M' + ('0000' + v).slice(-4); if (v) { catat(v); $('manual').value = ''; } }
     if (a === 'fotoqr') $('fqr').click();
+    if (a === 'linkbaru2') {
+      var idm = e.target.getAttribute('data-id'), nm = e.target.getAttribute('data-nm');
+      if (!confirm('Buat link kartu baru untuk ' + nm + '? Link dan QR lama langsung mati.')) return;
+      kirim('aksesBaru', { id: idm }).then(function (r) {
+        if (!r.ok) return toast(kataKunci(r), true);
+        var l = linkKartu(r.token);
+        $('hasil').innerHTML = '<div class="panel"><b>Link kartu baru untuk ' + esc(r.nama) + '</b><p class="muted" style="margin:0">Link dan QR lama sudah mati. Kirim link ini ke member.</p><input id="lk2" type="text" readonly value="' + esc(l) + '"><a class="btn" style="display:flex;align-items:center;justify-content:center" target="_blank" rel="noopener" href="' + esc(waUrl(r.wa, r.nama, l)) + '">Kirim lewat WhatsApp</a></div>';
+      }).catch(jaringan);
+    }
     if (a === 'perp') { D = { mode: 'perpanjang', metode: 'Tunai', nama: '', wa: '', foto: '', q: '', hasil: [], pilih: { id: e.target.getAttribute('data-id'), nama: e.target.getAttribute('data-nm') }, layar: 'form', sukses: null, sibuk: false }; buka('daftar'); }
   };
   $('fqr').onchange = function () {

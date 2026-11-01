@@ -1,5 +1,5 @@
 // Menyimpan halaman di HP supaya terbuka cepat (versi file: ubah angka v jika ingin memaksa penyegaran)
-var C = 'dcha-v2', A = ['./', 'index.html', 'admin.html', 'pemilik.html', 'member.html', 'dash.js', 'style.css', 'app.js', 'config.js', 'qrcode.js', 'jsQR.js', 'manifest-admin.json', 'manifest-pemilik.json', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
+var C = 'dcha-v3', A = ['./', 'index.html', 'admin.html', 'pemilik.html', 'member.html', 'dash.js', 'style.css', 'member.css', 'app.js', 'config.js', 'qrcode.js', 'jsQR.js', 'manifest-admin.json', 'manifest-pemilik.json', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', function (e) { e.waitUntil(caches.open(C).then(function (c) { return c.addAll(A); }).then(function () { return self.skipWaiting(); })); });
 self.addEventListener('activate', function (e) { e.waitUntil(caches.keys().then(function (k) { return Promise.all(k.filter(function (x) { return x !== C; }).map(function (x) { return caches.delete(x); })); }).then(function () { return self.clients.claim(); })); });
 self.addEventListener('fetch', function (e) {
