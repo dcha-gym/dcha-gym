@@ -1,21 +1,21 @@
 <!doctype html>
 <html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#1D4ED8"><title>D-CHA Admin</title>
-<link rel="stylesheet" href="style.css"><link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#0B0B0C"><title>D-CHA Admin</title>
+<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="tema.css"><link rel="manifest" href="manifest-admin.json">
 <link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="D-CHA Admin">
-<script src="config.js"></script><script src="app.js"></script><script src="dash.js"></script></head>
+<script src="config.js"></script><script src="app.js"></script><script src="dash.js"></script><script src="pin.js"></script></head>
 <body><main class="wrap" id="app">
 <section id="v-login" hidden>
   <div class="card"><img src="icons/icon-192.png" width="96" height="96" alt="Logo D-CHA GYM"><div class="nama">Masuk Admin</div>
-  <div class="f" style="width:100%;text-align:left"><label for="kid">Kode pengguna</label><input id="kid" type="text" autocapitalize="characters" autocomplete="username" placeholder="Contoh: ADM1"></div>
+  <p id="halo" class="nama" style="font-size:20px" hidden></p><div class="f" id="kidw" style="width:100%;text-align:left"><label for="kid">Kode pengguna</label><input id="kid" type="text" autocapitalize="characters" autocomplete="username" placeholder="Contoh: ADM1"></div>
   <div class="f" style="width:100%;text-align:left"><label for="pin">PIN (6 angka)</label><input id="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password"></div>
-  <p class="gal" id="lerr"></p><button id="masuk" style="width:100%">Masuk</button></div>
+  <p class="gal" id="lerr"></p><button id="masuk" style="width:100%">Masuk</button><button class="sec" id="bukan" style="width:100%" hidden>Bukan Anda? Ganti pengguna</button></div>
 </section>
 <section id="v-main" hidden>
-  <div class="top"><b id="judul">Scan presensi</b><button class="sec" id="keluar" style="min-height:40px;padding:0 12px;font-size:14px">Keluar</button></div>
+  <div class="bar"><img src="icons/icon-192.png" alt="Logo D-CHA GYM"><b>D-CHA</b><span>GYM</span><i>Admin</i></div><div class="top"><b id="judul">Scan presensi</b><span style="display:flex;gap:8px"><button class="sec" id="gpin" style="min-height:40px;padding:0 12px;font-size:14px">Ganti PIN</button><button class="sec" id="keluar" style="min-height:40px;padding:0 12px;font-size:14px">Keluar</button></span></div>
   <div id="v-scan" class="v" style="display:flex;flex-direction:column;gap:14px">
     <div class="cam"><video id="vid" playsinline muted></video><p id="camp">Menyalakan kamera...</p></div>
     <div id="camerr" class="gal" hidden></div>
@@ -49,7 +49,13 @@
 
   /* ---------- Masuk dan keluar ---------- */
   function simpan() { try { localStorage.setItem(KS, JSON.stringify({ tok: S.tok, user: S.user, harga: S.harga, exp: Date.now() + 11 * 3600000 })); } catch (e) { } }
-  function tampilLogin(pesan) { stopKamera(); $('v-main').hidden = true; $('v-login').hidden = false; $('lerr').textContent = pesan || ''; try { $('kid').value = localStorage.getItem(KS + '_id') || ''; } catch (e) { } $('pin').value = ''; }
+  function tampilLogin(pesan) { stopKamera(); $('v-main').hidden = true; $('v-login').hidden = false; $('lerr').textContent = pesan || ''; isiLogin(); }
+  function isiLogin() {
+    var id = '', nm = ''; try { id = localStorage.getItem(KS + '_id') || ''; nm = localStorage.getItem(KS + '_nm') || ''; } catch (e) { }
+    $('kid').value = id; $('pin').value = '';
+    var kenal = !!(id && nm); $('halo').hidden = !kenal; $('kidw').hidden = kenal; $('bukan').hidden = !kenal; if (kenal) $('halo').textContent = 'Halo, ' + nm;
+  }
+  $('bukan').onclick = function () { try { localStorage.removeItem(KS + '_id'); localStorage.removeItem(KS + '_nm'); } catch (e) { } isiLogin(); $('kid').focus(); };
   function keluar(pesan) { try { if (S.tok) api({ aksi: 'logout', token: S.tok }).catch(function () { }); localStorage.removeItem(KS); } catch (e) { } S.tok = ''; tampilLogin(pesan); }
   function masukApp() { $('v-login').hidden = true; $('v-main').hidden = false; buka('scan'); }
   $('masuk').onclick = function () {
@@ -60,11 +66,14 @@
       b.disabled = false;
       if (!r.ok) { $('lerr').textContent = kataKunci(r); $('pin').value = ''; return; }
       if (r.peran !== 'Admin') { api({ aksi: 'logout', token: r.token }).catch(function () { }); $('lerr').textContent = 'Akun ini bukan akun Admin.'; return; }
-      S.tok = r.token; S.user = { id: r.id, nama: r.nama }; if (r.harga) S.harga = r.harga; simpan();
-      try { localStorage.setItem(KS + '_id', id); } catch (e) { } masukApp();
+      S.tok = r.token; S.user = { id: r.id, nama: r.nama }; if (r.harga) S.harga = r.harga;
+      try { localStorage.setItem(KS + '_id', id); localStorage.setItem(KS + '_nm', r.nama); } catch (e) { }
+      var lanjut = function () { simpan(); masukApp(); if (r.layanan === 'Hanya-baca') toast('Mode hanya-baca: pencatatan dihentikan sementara.', true); };
+      if (r.wajibGanti) bukaGantiPin({ kirim: kirim, toast: toast, wajib: true, sukses: lanjut }); else lanjut();
     }).catch(function () { b.disabled = false; $('lerr').textContent = 'Tidak ada koneksi. Coba lagi.'; });
   };
   $('keluar').onclick = function () { keluar(''); };
+  $('gpin').onclick = function () { bukaGantiPin({ kirim: kirim, toast: toast, wajib: false }); };
 
   /* ---------- Navigasi ---------- */
   var JUDUL = { scan: 'Scan presensi', daftar: 'Daftar / perpanjang', tamu: 'Catat tamu harian', kas: 'Tutup kas harian', dash: 'Dashboard' };

@@ -1,24 +1,25 @@
 <!doctype html>
 <html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#1D4ED8"><title>D-CHA Pemilik</title>
-<link rel="stylesheet" href="style.css"><link rel="manifest" href="manifest-pemilik.json">
+<meta name="theme-color" content="#0B0B0C"><title>D-CHA Pemilik</title>
+<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="tema.css"><link rel="manifest" href="manifest-pemilik.json">
 <link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="D-CHA Pemilik">
-<script src="config.js"></script><script src="app.js"></script><script src="dash.js"></script></head>
+<script src="config.js"></script><script src="app.js"></script><script src="dash.js"></script><script src="pin.js"></script></head>
 <body><main class="wrap" id="app">
 <section id="v-login" hidden>
   <div class="card"><img src="icons/icon-192.png" width="96" height="96" alt="Logo D-CHA GYM"><div class="nama">Masuk Pemilik</div>
-  <div class="f" style="width:100%;text-align:left"><label for="kid">Kode pengguna</label><input id="kid" type="text" autocapitalize="characters" autocomplete="username" placeholder="Contoh: OWN1"></div>
+  <p id="halo" class="nama" style="font-size:20px" hidden></p><div class="f" id="kidw" style="width:100%;text-align:left"><label for="kid">Kode pengguna</label><input id="kid" type="text" autocapitalize="characters" autocomplete="username" placeholder="Contoh: OWN1"></div>
   <div class="f" style="width:100%;text-align:left"><label for="pin">PIN (6 angka)</label><input id="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password"></div>
-  <p class="gal" id="lerr"></p><button id="masuk" style="width:100%">Masuk</button></div>
+  <p class="gal" id="lerr"></p><button id="masuk" style="width:100%">Masuk</button><button class="sec" id="bukan" style="width:100%" hidden>Bukan Anda? Ganti pengguna</button></div>
 </section>
 <section id="v-main" hidden>
-  <div class="top"><b id="judul">Kas harian</b><button class="sec" id="keluar" style="min-height:40px;padding:0 12px;font-size:14px">Keluar</button></div>
+  <div class="bar"><img src="icons/icon-192.png" alt="Logo D-CHA GYM"><b>D-CHA</b><span>GYM</span><i>Pemilik</i></div><div class="top"><b id="judul">Kas harian</b><span style="display:flex;gap:8px"><button class="sec" id="gpin" style="min-height:40px;padding:0 12px;font-size:14px">Ganti PIN</button><button class="sec" id="keluar" style="min-height:40px;padding:0 12px;font-size:14px">Keluar</button></span></div>
   <div id="v-kas" class="v" style="display:flex;flex-direction:column;gap:14px"></div>
   <div id="v-dash" class="v" style="display:none;flex-direction:column;gap:14px"></div>
-  <nav class="nav" id="nav"><button data-n="kas" class="on">Kas</button><button data-n="dash">Grafik</button></nav>
+  <div id="v-staf" class="v" style="display:none;flex-direction:column;gap:14px"></div>
+  <nav class="nav" id="nav"><button data-n="kas" class="on">Kas</button><button data-n="dash">Grafik</button><button data-n="staf">Staf</button></nav>
 </section>
 </main>
 <script>
@@ -29,7 +30,13 @@
   function toast(t, e) { var x = document.createElement('div'); x.className = 'toast' + (e ? ' e' : ''); x.textContent = t; document.body.appendChild(x); setTimeout(function () { x.remove(); }, 3600); }
   function kirim(aksi, d) { d = d || {}; d.aksi = aksi; d.token = S.tok; return api(d).then(function (r) { if (r && r.kode === 'SESI') { keluar('Sesi habis. Silakan masuk lagi.'); throw new Error('sesi'); } return r; }); }
   function jaringan(e) { if (!e || e.message !== 'sesi') toast('Tidak ada koneksi atau server sibuk. Coba lagi.', true); }
-  function tampilLogin(p) { $('v-main').hidden = true; $('v-login').hidden = false; $('lerr').textContent = p || ''; try { $('kid').value = localStorage.getItem(KS + '_id') || ''; } catch (e) { } $('pin').value = ''; }
+  function tampilLogin(p) { $('v-main').hidden = true; $('v-login').hidden = false; $('lerr').textContent = p || ''; isiLogin(); }
+  function isiLogin() {
+    var id = '', nm = ''; try { id = localStorage.getItem(KS + '_id') || ''; nm = localStorage.getItem(KS + '_nm') || ''; } catch (e) { }
+    $('kid').value = id; $('pin').value = '';
+    var kenal = !!(id && nm); $('halo').hidden = !kenal; $('kidw').hidden = kenal; $('bukan').hidden = !kenal; if (kenal) $('halo').textContent = 'Halo, ' + nm;
+  }
+  $('bukan').onclick = function () { try { localStorage.removeItem(KS + '_id'); localStorage.removeItem(KS + '_nm'); } catch (e) { } isiLogin(); $('kid').focus(); };
   function keluar(p) { try { if (S.tok) api({ aksi: 'logout', token: S.tok }).catch(function () { }); localStorage.removeItem(KS); } catch (e) { } S.tok = ''; tampilLogin(p); }
   function masukApp() { $('v-login').hidden = true; $('v-main').hidden = false; buka('kas'); }
   $('masuk').onclick = function () {
@@ -40,16 +47,19 @@
       b.disabled = false;
       if (!r.ok) { $('lerr').textContent = msg(r); $('pin').value = ''; return; }
       if (r.peran !== 'Pemilik') { api({ aksi: 'logout', token: r.token }).catch(function () { }); $('lerr').textContent = 'Akun ini bukan akun Pemilik.'; return; }
-      S.tok = r.token; try { localStorage.setItem(KS, JSON.stringify({ tok: r.token, exp: Date.now() + 11 * 3600000 })); localStorage.setItem(KS + '_id', id); } catch (e) { } masukApp();
+      S.tok = r.token; try { localStorage.setItem(KS + '_id', id); localStorage.setItem(KS + '_nm', r.nama); } catch (e) { }
+      var lanjut = function () { try { localStorage.setItem(KS, JSON.stringify({ tok: r.token, exp: Date.now() + 11 * 3600000 })); } catch (e) { } masukApp(); if (r.layanan === 'Hanya-baca') toast('Mode hanya-baca: pencatatan dihentikan sementara.', true); };
+      if (r.wajibGanti) bukaGantiPin({ kirim: kirim, toast: toast, wajib: true, sukses: lanjut }); else lanjut();
     }).catch(function () { b.disabled = false; $('lerr').textContent = 'Tidak ada koneksi. Coba lagi.'; });
   };
   $('keluar').onclick = function () { keluar(''); };
+  $('gpin').onclick = function () { bukaGantiPin({ kirim: kirim, toast: toast, wajib: false }); };
   $('nav').onclick = function (e) { var n = e.target.getAttribute('data-n'); if (n) buka(n); };
   function buka(n) {
-    ['kas', 'dash'].forEach(function (x) { $('v-' + x).style.display = x === n ? 'flex' : 'none'; });
+    ['kas', 'dash', 'staf'].forEach(function (x) { $('v-' + x).style.display = x === n ? 'flex' : 'none'; });
     document.querySelectorAll('#nav button').forEach(function (b) { b.className = b.getAttribute('data-n') === n ? 'on' : ''; });
-    $('judul').textContent = n === 'kas' ? 'Kas harian' : 'Dashboard';
-    if (n === 'kas') muatKas(P.tgl); else muatDash();
+    $('judul').textContent = { kas: 'Kas harian', dash: 'Dashboard', staf: 'Staf' }[n];
+    if (n === 'kas') muatKas(P.tgl); else if (n === 'dash') muatDash(); else muatStaf();
   }
 
   /* ---------- Kas ---------- */
@@ -103,6 +113,42 @@
     };
   }
   function muatDash() { $('v-dash').innerHTML = '<p class="muted">Memuat dashboard...</p>'; kirim('dashboard', {}).then(function (r) { if (!r.ok) return toast(msg(r), true); renderDash($('v-dash'), r); }).catch(jaringan); }
+
+
+  /* ---------- Staf ---------- */
+  var ST = { nama: '', daftar: [], sibuk: false };
+  function muatStaf() { $('v-staf').innerHTML = '<p class="muted">Memuat staf...</p>'; kirim('staf', {}).then(function (r) { if (!r.ok) return toast(msg(r), true); ST.daftar = r.staf; gambarStaf(); }).catch(jaringan); }
+  function gambarStaf() {
+    var h = '<div class="panel"><b>Tambah admin baru</b><div class="f"><label for="sn">Nama</label><input id="sn" type="text" value="' + esc(ST.nama) + '" placeholder="Nama staf"></div><button data-a="tambah"' + (ST.sibuk ? ' disabled' : '') + '>Tambah dan buat PIN sementara</button></div>';
+    h += '<div class="panel"><b>Staf (' + ST.daftar.length + ')</b>' + ST.daftar.map(function (s) {
+      var adm = s.peran === 'Admin';
+      return '<div class="lr"><div>' + esc(s.nama) + '<small>' + esc(s.id) + ' - ' + esc(s.peran) + ' - ' + (s.aktif ? 'aktif' : 'NONAKTIF') + (s.wajibGanti ? ' - belum ganti PIN sementara' : '') + '</small></div>' +
+        (adm ? '<div style="display:flex;gap:8px"><button class="sec" data-a="reset" data-id="' + esc(s.id) + '" data-nm="' + esc(s.nama) + '">Reset PIN</button><button class="sec" data-a="aktif" data-id="' + esc(s.id) + '" data-nm="' + esc(s.nama) + '" data-v="' + (s.aktif ? '0' : '1') + '">' + (s.aktif ? 'Nonaktifkan' : 'Aktifkan') + '</button></div>' : '') + '</div>';
+    }).join('') + '</div><p class="muted">PIN sementara hanya tampil sekali. Sampaikan langsung ke orangnya, jangan lewat grup. Staf wajib menggantinya saat masuk pertama. Staf yang berhenti: tekan Nonaktifkan, lalu login-nya langsung mati.</p>';
+    $('v-staf').innerHTML = h;
+  }
+  function tampilPin(judul, nama, id, pin) {
+    var o = document.createElement('div'); o.className = 'ov';
+    o.innerHTML = '<div class="panel"><b>' + esc(judul) + '</b><p class="muted" style="margin:0">' + esc(nama) + ' (kode ' + esc(id) + ')</p><div class="pin">' + esc(pin) + '</div><p class="muted" style="margin:0">Catat sekarang. PIN ini tidak akan ditampilkan lagi. Orang tersebut akan diminta membuat PIN baru saat masuk pertama.</p><button id="pok">Sudah saya catat</button></div>';
+    document.body.appendChild(o); o.querySelector('#pok').onclick = function () { o.remove(); muatStaf(); };
+  }
+  $('v-staf').oninput = function (e) { if (e.target.id === 'sn') ST.nama = e.target.value; };
+  $('v-staf').onclick = function (e) {
+    var el = e.target.closest('[data-a]'); if (!el || ST.sibuk) return; var a = el.getAttribute('data-a'), id = el.getAttribute('data-id'), nm = el.getAttribute('data-nm');
+    if (a === 'tambah') {
+      if (ST.nama.trim().length < 2) return toast('Isi nama staf.', true);
+      ST.sibuk = true; kirim('stafTambah', { nama: ST.nama }).then(function (r) { ST.sibuk = false; if (!r.ok) { gambarStaf(); return toast(msg(r), true); } ST.nama = ''; tampilPin('Admin baru dibuat', r.nama, r.id, r.pinSementara); }).catch(function (x) { ST.sibuk = false; jaringan(x); });
+    }
+    if (a === 'reset') {
+      if (!confirm('Atur ulang PIN ' + nm + '? Login ' + nm + ' saat ini langsung mati.')) return;
+      kirim('stafReset', { id: id }).then(function (r) { if (!r.ok) return toast(msg(r), true); tampilPin('PIN sementara baru', r.nama, r.id, r.pinSementara); }).catch(jaringan);
+    }
+    if (a === 'aktif') {
+      var on = el.getAttribute('data-v') === '1';
+      if (!confirm((on ? 'Aktifkan kembali ' : 'Nonaktifkan ') + nm + '?' + (on ? '' : ' Login ' + nm + ' langsung mati.'))) return;
+      kirim('stafAktif', { id: id, aktif: on }).then(function (r) { if (!r.ok) return toast(msg(r), true); toast(on ? 'Staf diaktifkan.' : 'Staf dinonaktifkan.'); muatStaf(); }).catch(jaringan);
+    }
+  };
 
   var tersimpan = null; try { tersimpan = JSON.parse(localStorage.getItem(KS) || 'null'); } catch (e) { }
   ping().catch(function () { });

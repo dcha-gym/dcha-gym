@@ -1,0 +1,27 @@
+/* Tema merah dan hitam sesuai logo D-CHA GYM (menimpa warna dasar style.css) */
+:root{--biru:#D71920;--tint:#1D2204;--tinta:#D4F51C;--bg:#0B0B0C;--ink:#FFFFFF;--muted:#B4B4BC;--brd:#323238;--merah:#FF6B70;--merahbg:#3A0F11;--s1:#17171A;--s2:#222226;--lm:#D4F51C}
+html,body{background:var(--bg);color:var(--ink)}
+.card,.panel,.kpi,.ch,.pasang,.hasil{background:var(--s1)!important;border-color:var(--brd)!important}
+.card{border-top:3px solid var(--biru)!important}.card img{background:#fff;border-radius:16px}
+input[type=text],input[type=tel],input[type=password],input[type=search],input[type=date]{background:#0B0B0C!important;color:#fff!important;border-color:var(--brd)!important}
+button.sec{background:transparent!important;color:#fff!important;border:1px solid var(--muted)!important}
+.seg button{background:var(--s1)!important;color:var(--muted)!important;border:1px solid var(--brd)!important}
+.seg button.on{background:var(--tint)!important;color:var(--tinta)!important;border:2px solid var(--lm)!important}
+.nav{background:var(--bg)}.nav button{background:var(--s1)!important;color:var(--muted)!important;border:1px solid var(--brd)!important;font-size:12px}
+.nav button.on{background:var(--biru)!important;color:#fff!important;border:0!important}
+.hasil{border:2px solid var(--lm)!important}.hasil.x{border-color:var(--biru)!important}
+.hasil img,.hasil .ph{border:2px solid var(--lm);background:var(--s2)!important;color:#fff!important}
+.hasil.x img,.hasil.x .ph{border-color:var(--biru);color:var(--merah)!important}
+.badge{background:var(--lm)!important;color:#0B0B0C!important}
+.hasil.x .badge{background:var(--merahbg)!important;color:var(--merah)!important;border:1px solid var(--biru)}
+.toast{background:#222226!important;color:#fff!important;border:1px solid var(--brd)}
+.toast.e{background:var(--merahbg)!important;color:var(--merah)!important;border-color:var(--biru)}
+.cam{background:#000!important}.lr,.big{border-color:var(--brd)!important}
+.lr a,.lr button{background:var(--biru)!important;color:#fff!important}.lr button.sec{background:transparent!important}
+.ov{background:rgba(0,0,0,.75)}.neg{color:var(--merah)!important}.gal{color:var(--merah)}
+[style*="background:#fff"]{background:var(--s1)!important}
+[style*="border:1px solid #C5CEDF"]{border-color:var(--brd)!important}
+.bar{display:flex;align-items:center;gap:10px}.bar img{width:40px;height:40px;border-radius:10px;background:#fff;object-fit:contain}
+.bar b{font-size:20px;font-style:italic;font-weight:900;color:var(--biru)}.bar span{font-size:18px;font-weight:800;letter-spacing:.04em}
+.bar i{margin-left:auto;font-style:normal;font-size:12px;color:var(--muted);border:1px solid var(--brd);border-radius:999px;padding:4px 10px}
+.pin{font-size:40px;font-weight:800;letter-spacing:.2em;text-align:center;color:var(--lm);padding:10px 0}
