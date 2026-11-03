@@ -18,8 +18,9 @@
   <div class="bar"><img src="icons/icon-192.png" alt="Logo D-CHA GYM"><b>D-CHA</b><span>GYM</span><i>Pemilik</i></div><div class="top"><b id="judul">Kas harian</b><span style="display:flex;gap:8px"><button class="sec" id="gpin" style="min-height:40px;padding:0 12px;font-size:14px">Ganti PIN</button><button class="sec" id="keluar" style="min-height:40px;padding:0 12px;font-size:14px">Keluar</button></span></div>
   <div id="v-kas" class="v" style="display:flex;flex-direction:column;gap:14px"></div>
   <div id="v-dash" class="v" style="display:none;flex-direction:column;gap:14px"></div>
+  <div id="v-produk" class="v" style="display:none;flex-direction:column;gap:14px"></div>
   <div id="v-staf" class="v" style="display:none;flex-direction:column;gap:14px"></div>
-  <nav class="nav" id="nav"><button data-n="kas" class="on">Kas</button><button data-n="dash">Grafik</button><button data-n="staf">Staf</button></nav>
+  <nav class="nav" id="nav"><button data-n="kas" class="on">Kas</button><button data-n="dash">Grafik</button><button data-n="produk">Produk</button><button data-n="staf">Staf</button></nav>
 </section>
 </main>
 <script>
@@ -56,24 +57,24 @@
   $('gpin').onclick = function () { bukaGantiPin({ kirim: kirim, toast: toast, wajib: false }); };
   $('nav').onclick = function (e) { var n = e.target.getAttribute('data-n'); if (n) buka(n); };
   function buka(n) {
-    ['kas', 'dash', 'staf'].forEach(function (x) { $('v-' + x).style.display = x === n ? 'flex' : 'none'; });
+    ['kas', 'dash', 'produk', 'staf'].forEach(function (x) { $('v-' + x).style.display = x === n ? 'flex' : 'none'; });
     document.querySelectorAll('#nav button').forEach(function (b) { b.className = b.getAttribute('data-n') === n ? 'on' : ''; });
-    $('judul').textContent = { kas: 'Kas harian', dash: 'Dashboard', staf: 'Staf' }[n];
-    if (n === 'kas') muatKas(P.tgl); else if (n === 'dash') muatDash(); else muatStaf();
+    $('judul').textContent = { kas: 'Kas harian', dash: 'Dashboard', produk: 'Produk', staf: 'Staf' }[n];
+    if (n === 'kas') muatKas(P.tgl); else if (n === 'dash') muatDash(); else if (n === 'produk') muatProduk(); else muatStaf();
   }
 
   /* ---------- Kas ---------- */
   function hariIniLokal() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
-  var P = { tgl: hariIniLokal(), data: null, cocok: 'Cocok', catatan: '', sibuk: false };
+  var P = { tgl: '', data: null, cocok: 'Cocok', catatan: '', sibuk: false };
   var baris = function (a, b, c) { return '<div class="row"><span>' + esc(a) + '</span><span' + (c ? ' class="' + c + '"' : '') + '>' + esc(b) + '</span></div>'; };
   function muatKas(tgl) {
     P.tgl = tgl || P.tgl; $('v-kas').innerHTML = '<p class="muted">Memuat kas...</p>';
-    kirim('kasHariIni', { tanggal: P.tgl }).then(function (r) { if (!r.ok) return toast(msg(r), true); P.data = r; gambarKas(); }).catch(jaringan);
+    kirim('kasHariIni', P.tgl ? { tanggal: P.tgl } : {}).then(function (r) { if (!r.ok) return toast(msg(r), true); P.data = r; P.tgl = r.tanggal; gambarKas(); }).catch(jaringan);
   }
   function gambarKas() {
     var r = P.data, t = r.tutup, kunci = !!(t && t.terkunci), dihitung = !!(t && t.dihitungOleh);
     var h = '<div class="panel"><div class="f"><label for="tgl">Tanggal</label><input id="tgl" type="date" value="' + esc(P.tgl) + '" style="min-height:48px;border:1px solid #C5CEDF;border-radius:12px;padding:0 14px;font-size:16px;background:#fff"></div><button class="sec" data-a="muat">Tampilkan tanggal ini</button></div>';
-    h += '<div class="panel"><b>Pemasukan (otomatis)</b>' + baris('Member baru', rp(r.memberBaru)) + baris('Perpanjangan', rp(r.perpanjangan)) + baris('Tamu harian', rp(r.tamu)) + '<div style="border-top:1px solid var(--brd);padding-top:8px;display:flex;flex-direction:column;gap:10px">' + baris('Tunai', rp(r.tunai)) + baris('Transfer', rp(r.transfer)) + '</div></div>';
+    h += '<div class="panel"><b>Pemasukan (otomatis)</b>' + baris('Member baru', rp(r.memberBaru)) + baris('Perpanjangan', rp(r.perpanjangan)) + baris('Tamu harian', rp(r.tamu)) + baris('Penjualan produk', rp(r.produk)) + '<div style="border-top:1px solid var(--brd);padding-top:8px;display:flex;flex-direction:column;gap:10px">' + baris('Tunai', rp(r.tunai)) + baris('Transfer', rp(r.transfer)) + '</div></div>';
     h += '<div class="panel"><b>Uang keluar dari laci</b>' + (r.keluar.length ? r.keluar.map(function (x) { return baris(x.alasan + ' (' + x.jam + ', ' + x.oleh + ')', rp(x.jumlah)); }).join('') : '<p class="muted" style="margin:0">Tidak ada.</p>') + '</div>';
     if (dihitung) h += '<div class="panel"' + (kunci ? ' style="border:2px solid var(--biru)"' : '') + '><b>Hitungan admin (' + esc(t.dihitungOleh) + ')</b>' + baris('Tunai seharusnya', rp(r.tunaiSeharusnya)) + baris('Dihitung admin', rp(t.tunaiDihitung)) + baris('Selisih', (t.selisih < 0 ? '-' : '') + rp(Math.abs(t.selisih)), t.selisih ? 'neg' : '') + (t.alasanSelisih ? '<p class="muted" style="margin:0">Alasan: ' + esc(t.alasanSelisih) + '</p>' : '') + '</div>';
     else h += '<div class="panel"><b>Admin belum menghitung kas tanggal ini</b><p class="muted" style="margin:0">Penutupan baru bisa dilakukan setelah admin menekan Kirim ke pemilik.</p></div>';
@@ -114,6 +115,34 @@
   }
   function muatDash() { $('v-dash').innerHTML = '<p class="muted">Memuat dashboard...</p>'; kirim('dashboard', {}).then(function (r) { if (!r.ok) return toast(msg(r), true); renderDash($('v-dash'), r); }).catch(jaringan); }
 
+
+
+  /* ---------- Produk ---------- */
+  var PR = { daftar: [], kat: [], form: null, sibuk: false };
+  var angkaP = function (v) { return parseInt(String(v).replace(/\D/g, ''), 10) || 0; };
+  function muatProduk() { $('v-produk').innerHTML = '<p class="muted">Memuat produk...</p>'; kirim('produk', {}).then(function (r) { if (!r.ok) return toast(msg(r), true); PR.daftar = r.produk; PR.kat = r.kategori; gambarProduk(); }).catch(jaringan); }
+  function gambarProduk() {
+    var f = PR.form, h = '<div style="display:flex;justify-content:space-between;align-items:center"><b>Produk (' + PR.daftar.length + ')</b><button data-a="baru" style="min-height:44px;padding:0 16px;font-size:14px">+ Tambah</button></div><p class="muted" style="margin:0">Hanya pemilik yang bisa mengubah harga. Harga beli boleh dikosongkan dan tidak terlihat admin.</p>';
+    if (f) h += '<div class="panel"><b>' + (f.id ? 'Ubah produk' : 'Produk baru') + '</b><div class="f"><label for="fn">Nama produk</label><input id="fn" type="text" value="' + esc(f.nama) + '" placeholder="Contoh: Air mineral 600 ml"></div><div class="f"><label for="fk">Kategori</label><select id="fk">' + PR.kat.map(function (k) { return '<option' + (f.kategori === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select></div><div class="f"><label for="fj">Harga jual (Rp)</label><input id="fj" type="text" inputmode="numeric" value="' + esc(f.hargaJual) + '" placeholder="Contoh: 5000"></div><div class="f"><label for="fb">Harga beli (Rp, boleh kosong)</label><input id="fb" type="text" inputmode="numeric" value="' + esc(f.hargaBeli) + '"></div><button data-a="simpan"' + (PR.sibuk ? ' disabled' : '') + '>Simpan</button><button class="sec" data-a="batalform">Batal</button></div>';
+    h += '<div class="panel">' + (PR.daftar.length ? PR.daftar.map(function (x) {
+      return '<div class="lr"><div>' + esc(x.nama) + '<small>' + esc(x.kategori) + ' - jual ' + rp(x.hargaJual) + ' - beli ' + (x.hargaBeli == null ? '-' : rp(x.hargaBeli)) + (x.aktif ? '' : ' - NONAKTIF') + '</small></div><div style="display:flex;gap:8px"><button class="sec" data-a="ubah" data-id="' + esc(x.id) + '">Ubah</button><button class="sec" data-a="aktif" data-id="' + esc(x.id) + '" data-v="' + (x.aktif ? '0' : '1') + '">' + (x.aktif ? 'Matikan' : 'Aktifkan') + '</button></div></div>';
+    }).join('') : '<p class="muted" style="margin:0">Belum ada produk. Tekan + Tambah.</p>') + '</div><p class="muted">Stok tidak dihitung otomatis. Cocokkan stok fisik tiap minggu. Produk yang dimatikan hilang dari layar Jual admin, riwayat penjualannya tetap tersimpan.</p>';
+    $('v-produk').innerHTML = h;
+  }
+  $('v-produk').oninput = function (e) { var f = PR.form; if (!f) return; var i = e.target.id; if (i === 'fn') f.nama = e.target.value; if (i === 'fj') f.hargaJual = e.target.value; if (i === 'fb') f.hargaBeli = e.target.value; };
+  $('v-produk').onchange = function (e) { if (PR.form && e.target.id === 'fk') PR.form.kategori = e.target.value; };
+  $('v-produk').onclick = function (e) {
+    var el = e.target.closest('[data-a]'); if (!el || el.disabled || PR.sibuk) return; var a = el.getAttribute('data-a'), id = el.getAttribute('data-id');
+    if (a === 'baru') { PR.form = { id: '', nama: '', kategori: PR.kat[0] || 'Mineral', hargaJual: '', hargaBeli: '' }; gambarProduk(); }
+    if (a === 'ubah') { var x = PR.daftar.filter(function (z) { return z.id === id; })[0]; PR.form = { id: x.id, nama: x.nama, kategori: x.kategori, hargaJual: String(x.hargaJual), hargaBeli: x.hargaBeli == null ? '' : String(x.hargaBeli) }; gambarProduk(); }
+    if (a === 'batalform') { PR.form = null; gambarProduk(); }
+    if (a === 'simpan') {
+      var f = PR.form; if (f.nama.trim().length < 2) return toast('Isi nama produk.', true); if (!angkaP(f.hargaJual)) return toast('Isi harga jual.', true);
+      PR.sibuk = true; gambarProduk();
+      kirim('produkSimpan', { id: f.id, nama: f.nama, kategori: f.kategori, hargaJual: angkaP(f.hargaJual), hargaBeli: String(f.hargaBeli).trim() === '' ? '' : angkaP(f.hargaBeli) }).then(function (r) { PR.sibuk = false; if (!r.ok) { gambarProduk(); return toast(msg(r), true); } PR.form = null; toast('Produk disimpan.'); muatProduk(); }).catch(function (x2) { PR.sibuk = false; gambarProduk(); jaringan(x2); });
+    }
+    if (a === 'aktif') { var on = el.getAttribute('data-v') === '1'; kirim('produkAktif', { id: id, aktif: on }).then(function (r) { if (!r.ok) return toast(msg(r), true); toast(on ? 'Produk diaktifkan.' : 'Produk dimatikan.'); muatProduk(); }).catch(jaringan); }
+  };
 
   /* ---------- Staf ---------- */
   var ST = { nama: '', daftar: [], sibuk: false };

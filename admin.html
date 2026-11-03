@@ -26,9 +26,10 @@
   </div>
   <div id="v-daftar" class="v" style="display:none;flex-direction:column;gap:14px"></div>
   <div id="v-tamu" class="v" style="display:none;flex-direction:column;gap:14px"></div>
+  <div id="v-jual" class="v" style="display:none;flex-direction:column;gap:14px"></div>
   <div id="v-kas" class="v" style="display:none;flex-direction:column;gap:14px"></div>
   <div id="v-dash" class="v" style="display:none;flex-direction:column;gap:14px"></div>
-  <nav class="nav" id="nav"><button data-n="scan" class="on">Scan</button><button data-n="daftar">Daftar</button><button data-n="tamu">Tamu</button><button data-n="kas">Kas</button><button data-n="dash">Grafik</button></nav>
+  <nav class="nav" id="nav"><button data-n="scan" class="on">Scan</button><button data-n="jual">Jual</button><button data-n="daftar">Daftar</button><button data-n="kas">Kas</button><button data-n="dash">Grafik</button></nav>
 </section>
 <input id="ffoto" type="file" accept="image/*" capture="user" hidden>
 </main>
@@ -76,12 +77,12 @@
   $('gpin').onclick = function () { bukaGantiPin({ kirim: kirim, toast: toast, wajib: false }); };
 
   /* ---------- Navigasi ---------- */
-  var JUDUL = { scan: 'Scan presensi', daftar: 'Daftar / perpanjang', tamu: 'Catat tamu harian', kas: 'Tutup kas harian', dash: 'Dashboard' };
+  var JUDUL = { scan: 'Scan presensi', daftar: 'Daftar / perpanjang', tamu: 'Daftar / perpanjang / tamu', jual: 'Jual produk', kas: 'Tutup kas harian', dash: 'Dashboard' };
   function buka(n) {
-    ['scan', 'daftar', 'tamu', 'kas', 'dash'].forEach(function (x) { var v = $('v-' + x); v.style.display = x === n ? 'flex' : 'none'; });
+    ['scan', 'jual', 'daftar', 'tamu', 'kas', 'dash'].forEach(function (x) { var v = $('v-' + x); v.style.display = (x === 'tamu' ? (n === 'daftar' && D.mode === 'tamu') : x === n) ? 'flex' : 'none'; });
     document.querySelectorAll('#nav button').forEach(function (b) { b.className = b.getAttribute('data-n') === n ? 'on' : ''; });
-    $('judul').textContent = JUDUL[n]; stopKamera();
-    if (n === 'scan') mulaiKamera(); if (n === 'daftar') gambarDaftar(); if (n === 'tamu') gambarTamu(); if (n === 'kas') muatKas(); if (n === 'dash') muatDash();
+    $('judul').textContent = JUDUL[n === 'daftar' && D.mode === 'tamu' ? 'tamu' : n]; stopKamera();
+    if (n === 'scan') mulaiKamera(); if (n === 'daftar') gambarDaftar(); if (n === 'jual') muatJual(); if (n === 'kas') muatKas(); if (n === 'dash') muatDash();
   }
   $('nav').onclick = function (e) { var n = e.target.getAttribute('data-n'); if (n) buka(n); };
 
@@ -131,7 +132,7 @@
     if (!r.ok) { b.innerHTML = '<div class="hasil x"><div class="ph">!</div><div><div class="nama" style="font-size:18px">' + esc(kataKunci(r)) + '</div><p class="muted">Coba scan ulang atau ketik nomor WA.</p></div></div>'; return; }
     var foto = r.foto ? '<img alt="Foto member" src="' + esc(r.foto) + '">' : '<div class="ph">' + esc(String(r.nama).charAt(0)) + '</div>';
     if (!r.aktif) {
-      b.innerHTML = '<div class="hasil x">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">TIDAK AKTIF</span><p class="muted">Berakhir ' + esc(fmtTgl(r.tglHabis)) + '</p></div></div><p class="muted">Presensi tidak dicatat. Tawarkan perpanjang atau catat sebagai tamu.</p><button data-a="perp" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Perpanjang sekarang</button><button class="sec" data-a="linkbaru2" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Buat link kartu baru</button>';
+      b.innerHTML = '<div class="hasil x">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">TIDAK AKTIF</span><p class="muted">Berakhir ' + esc(fmtTgl(r.tglHabis)) + '</p></div></div><p class="muted">Presensi tidak dicatat. Tawarkan perpanjang atau catat sebagai tamu.</p><button data-a="perp" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Perpanjang sekarang</button><button class="sec" data-a="jaditamu">Catat sebagai tamu harian</button><button class="sec" data-a="linkbaru2" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Buat link kartu baru</button>';
       return;
     }
     var aksi = r.duplikat ? 'Sudah tercatat ' + r.aksi + ' pukul ' + r.jam : (r.aksi === 'MASUK' ? 'Masuk ' : 'Keluar ') + r.jam;
@@ -141,6 +142,7 @@
     var a = e.target.getAttribute('data-a');
     if (a === 'manual') { var v = $('manual').value.trim().toUpperCase(); if (/^\d{1,4}$/.test(v)) v = 'M' + ('0000' + v).slice(-4); if (v) { catat(v); $('manual').value = ''; } }
     if (a === 'fotoqr') $('fqr').click();
+    if (a === 'jaditamu') { D.mode = 'tamu'; D.layar = 'form'; buka('daftar'); }
     if (a === 'linkbaru2') {
       var idm = e.target.getAttribute('data-id'), nm = e.target.getAttribute('data-nm');
       if (!confirm('Buat link kartu baru untuk ' + nm + '? Link dan QR lama langsung mati.')) return;
@@ -160,9 +162,11 @@
   /* ---------- Daftar dan perpanjang ---------- */
   function seg(pil, aktif, aksi) { return '<div class="seg">' + pil.map(function (p) { return '<button data-a="' + aksi + '" data-v="' + p[0] + '" class="' + (aktif === p[0] ? 'on' : '') + '">' + p[1] + '</button>'; }).join('') + '</div>'; }
   function gambarDaftar() {
-    var v = $('v-daftar'), h = seg([['baru', 'Member baru'], ['perpanjang', 'Perpanjang']], D.mode, 'mode');
+    var v = $('v-daftar'), h = seg([['baru', 'Member baru'], ['perpanjang', 'Perpanjang'], ['tamu', 'Tamu']], D.mode, 'mode');
+    $('v-tamu').style.display = (D.mode === 'tamu' && D.layar === 'form') ? 'flex' : 'none'; $('judul').textContent = JUDUL[D.mode === 'tamu' ? 'tamu' : 'daftar'];
     if (D.layar === 'sukses') { v.innerHTML = suksesHtml(); return; }
     if (D.layar === 'konfirm') { v.innerHTML = konfirmHtml(); return; }
+    if (D.mode === 'tamu') { v.innerHTML = h; gambarTamu(); return; }
     if (D.mode === 'baru') {
       h += '<div class="f"><label for="dn">Nama</label><input id="dn" type="text" value="' + esc(D.nama) + '" placeholder="Nama lengkap"></div>' +
         '<div class="f"><label for="dw">Nomor WhatsApp aktif</label><input id="dw" type="tel" value="' + esc(D.wa) + '" placeholder="08xxxxxxxxxx"></div>' +
@@ -193,7 +197,7 @@
   $('v-daftar').oninput = function (e) { var i = e.target.id; if (i === 'dn') D.nama = e.target.value; if (i === 'dw') D.wa = e.target.value; if (i === 'dq') D.q = e.target.value; };
   $('v-daftar').onclick = function (e) {
     var el = e.target.closest('[data-a]'); if (!el) return; var a = el.getAttribute('data-a'), v = el.getAttribute('data-v');
-    if (a === 'mode') { D.mode = v; D.pilih = null; D.hasil = []; gambarDaftar(); }
+    if (a === 'mode') { D.mode = v; D.pilih = null; D.hasil = []; D.layar = 'form'; gambarDaftar(); }
     if (a === 'metode') { D.metode = v; gambarDaftar(); }
     if (a === 'foto') $('ffoto').click();
     if (a === 'cari') kirim('cari', { q: D.q }).then(function (r) { D.hasil = r.hasil || []; D.pilih = null; gambarDaftar(); if (!D.hasil.length) toast('Tidak ada member yang cocok.', true); }).catch(jaringan);
@@ -253,6 +257,37 @@
     }
   };
 
+  /* ---------- Jual produk ---------- */
+  var J = { produk: [], qty: {}, metode: 'Tunai', sibuk: false };
+  function muatJual() { $('v-jual').innerHTML = '<p class="muted">Memuat produk...</p>'; kirim('produk', {}).then(function (r) { if (!r.ok) return toast(kataKunci(r), true); J.produk = r.produk; gambarJual(); }).catch(jaringan); }
+  function gambarJual() {
+    var total = 0, baris2 = [];
+    if (!J.produk.length) { $('v-jual').innerHTML = '<div class="panel"><b>Belum ada produk</b><p class="muted" style="margin:0">Minta pemilik menambahkan produk di halaman Pemilik, tab Produk.</p></div>'; return; }
+    var tiles = J.produk.map(function (p) {
+      var q = J.qty[p.id] || 0; if (q) { total += q * p.hargaJual; baris2.push('<div class="row"><span>' + esc(p.nama) + ' x' + q + '</span><span>' + rp(q * p.hargaJual) + '</span></div>'); }
+      return '<div class="tile' + (q ? ' on' : '') + '"><button class="tl" data-a="tambah" data-id="' + esc(p.id) + '"><b>' + esc(p.nama) + '</b><small>' + rp(p.hargaJual) + '</small></button>' + (q ? '<span class="qb">' + q + '</span><button class="min" data-a="kurang" data-id="' + esc(p.id) + '" aria-label="Kurangi ' + esc(p.nama) + '">-</button>' : '') + '</div>';
+    }).join('');
+    $('v-jual').innerHTML = '<p class="muted" style="margin:0">Ketuk produk untuk menambah. Pembeli tidak perlu dicatat.</p><div class="tiles">' + tiles + '</div>' +
+      '<div class="panel"><b>Belanja ini</b>' + (baris2.length ? baris2.join('') : '<p class="muted" style="margin:0">Belum ada yang dipilih.</p>') + '<div class="big">' + rp(total) + '</div></div>' +
+      seg([['Tunai', 'Tunai'], ['Transfer', 'Transfer']], J.metode, 'jmetode') +
+      '<button data-a="terima" style="min-height:56px"' + (J.sibuk || !total ? ' disabled' : '') + '>Uang sudah saya terima</button><button class="sec" data-a="kosong" style="min-height:48px"' + (total ? '' : ' disabled') + '>Kosongkan</button>';
+  }
+  $('v-jual').onclick = function (e) {
+    var el = e.target.closest('[data-a]'); if (!el || el.disabled || J.sibuk) return; var a = el.getAttribute('data-a'), id = el.getAttribute('data-id');
+    if (a === 'tambah') { J.qty[id] = Math.min(50, (J.qty[id] || 0) + 1); gambarJual(); }
+    if (a === 'kurang') { J.qty[id] = (J.qty[id] || 0) - 1; if (J.qty[id] <= 0) delete J.qty[id]; gambarJual(); }
+    if (a === 'jmetode') { J.metode = el.getAttribute('data-v'); gambarJual(); }
+    if (a === 'kosong') { J.qty = {}; gambarJual(); }
+    if (a === 'terima') {
+      var items = Object.keys(J.qty).map(function (k) { return { id: k, qty: J.qty[k] }; }); if (!items.length) return;
+      J.sibuk = true; gambarJual();
+      kirim('jual', { items: items, metode: J.metode, konfirmasi: true }).then(function (r) {
+        J.sibuk = false; if (!r.ok) { gambarJual(); return toast(kataKunci(r), true); }
+        J.qty = {}; toast('Penjualan dicatat: ' + rp(r.total) + ' (' + r.jumlah + ' item)'); gambarJual();
+      }).catch(function (x) { J.sibuk = false; gambarJual(); jaringan(x); });
+    }
+  };
+
   /* ---------- Kas harian ---------- */
   var K = { data: null, laci: '', alasan: '', kj: '', ka: '', sibuk: false };
   var baris = function (a, b, c) { return '<div class="row"><span>' + esc(a) + '</span><span' + (c ? ' class="' + c + '"' : '') + '>' + esc(b) + '</span></div>'; };
@@ -260,7 +295,7 @@
   function muatKas() { $('v-kas').innerHTML = '<p class="muted">Memuat kas hari ini...</p>'; kirim('kasHariIni', {}).then(function (r) { if (!r.ok) return toast(kataKunci(r), true); K.data = r; gambarKas(); }).catch(jaringan); }
   function gambarKas() {
     var r = K.data, t = r.tutup, kunci = !!(t && t.terkunci), h = '';
-    h += '<div class="panel"><b>Pemasukan hari ini (otomatis)</b>' + baris('Member baru', rp(r.memberBaru)) + baris('Perpanjangan', rp(r.perpanjangan)) + baris('Tamu harian', rp(r.tamu)) + '<div style="border-top:1px solid var(--brd);padding-top:8px;display:flex;flex-direction:column;gap:10px">' + baris('Tunai', rp(r.tunai)) + baris('Transfer', rp(r.transfer)) + '</div></div>';
+    h += '<div class="panel"><b>Pemasukan hari ini (otomatis)</b>' + baris('Member baru', rp(r.memberBaru)) + baris('Perpanjangan', rp(r.perpanjangan)) + baris('Tamu harian', rp(r.tamu)) + baris('Penjualan produk', rp(r.produk)) + '<div style="border-top:1px solid var(--brd);padding-top:8px;display:flex;flex-direction:column;gap:10px">' + baris('Tunai', rp(r.tunai)) + baris('Transfer', rp(r.transfer)) + '</div></div>';
     h += '<div class="panel"><b>Uang keluar dari laci</b>' + (r.keluar.length ? r.keluar.map(function (x) { return baris(x.alasan + ' (' + x.jam + ')', rp(x.jumlah)); }).join('') : '<p class="muted" style="margin:0">Belum ada.</p>');
     if (!kunci) h += '<div class="f"><label for="kj">Jumlah (Rp)</label><input id="kj" type="text" inputmode="numeric" value="' + esc(K.kj) + '" placeholder="Contoh: 25000"></div><div class="f"><label for="ka">Alasan</label><input id="ka" type="text" value="' + esc(K.ka) + '" placeholder="Contoh: beli galon"></div><button class="sec" data-a="keluar">Catat uang keluar</button>';
     h += '</div>';
