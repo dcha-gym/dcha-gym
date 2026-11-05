@@ -127,25 +127,34 @@
     $('hasil').innerHTML = '<div class="panel"><b>QR terbaca. Memeriksa member...</b><p class="muted" style="margin:0">Tunggu sebentar, jangan scan ulang.</p></div>';
     kirim('scan', { kode: kode }).then(tampilScan).catch(jaringan);
   }
+  var fotoTarget = '', lastScan = null;
+  function tambahan(r) {
+    var x = '';
+    if (!r.foto) x += '<p class="gal">Foto wajah belum ada. Lengkapi sekarang supaya wajah bisa dicocokkan.</p><button data-a="fotolengkap" data-id="' + esc(r.id) + '">Lengkapi foto sekarang</button>';
+    if (r.link === false) x += '<p class="muted">Member ini belum punya link kartu.</p><button class="sec" data-a="linkbaru2" data-link="0" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Buat dan kirim link kartu</button>';
+    else x += '<button class="sec" data-a="linkbaru2" data-link="1" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Buat link kartu baru</button>';
+    return x;
+  }
   function tampilScan(r) {
-    var b = $('hasil');
+    lastScan = r; var b = $('hasil');
     if (!r.ok) { b.innerHTML = '<div class="hasil x"><div class="ph">!</div><div><div class="nama" style="font-size:18px">' + esc(kataKunci(r)) + '</div><p class="muted">Coba scan ulang atau ketik nomor WA.</p></div></div>'; return; }
     var foto = r.foto ? '<img alt="Foto member" src="' + esc(r.foto) + '">' : '<div class="ph">' + esc(String(r.nama).charAt(0)) + '</div>';
     if (!r.aktif) {
-      b.innerHTML = '<div class="hasil x">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">TIDAK AKTIF</span><p class="muted">Berakhir ' + esc(fmtTgl(r.tglHabis)) + '</p></div></div><p class="muted">Presensi tidak dicatat. Tawarkan perpanjang atau catat sebagai tamu.</p><button data-a="perp" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Perpanjang sekarang</button><button class="sec" data-a="jaditamu">Catat sebagai tamu harian</button><button class="sec" data-a="linkbaru2" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Buat link kartu baru</button>';
+      b.innerHTML = '<div class="hasil x">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">TIDAK AKTIF</span><p class="muted">Berakhir ' + esc(fmtTgl(r.tglHabis)) + '</p></div></div><p class="muted">Presensi tidak dicatat. Tawarkan perpanjang atau catat sebagai tamu.</p><button data-a="perp" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Perpanjang sekarang</button><button class="sec" data-a="jaditamu">Catat sebagai tamu harian</button>' + tambahan(r);
       return;
     }
     var aksi = r.duplikat ? 'Sudah tercatat ' + r.aksi + ' pukul ' + r.jam : (r.aksi === 'MASUK' ? 'Masuk ' : 'Keluar ') + r.jam;
-    b.innerHTML = '<div class="hasil">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">AKTIF</span><p class="muted">Sampai ' + esc(fmtTgl(r.tglHabis)) + '</p><p style="margin:0;font-weight:600">' + esc(aksi) + '</p></div></div><p class="muted">Cocokkan wajah dengan foto sebelum mempersilakan masuk.</p><button class="sec" data-a="linkbaru2" data-id="' + esc(r.id) + '" data-nm="' + esc(r.nama) + '">Buat link kartu baru</button>';
+    b.innerHTML = '<div class="hasil">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">AKTIF</span><p class="muted">Sampai ' + esc(fmtTgl(r.tglHabis)) + '</p><p style="margin:0;font-weight:600">' + esc(aksi) + '</p></div></div><p class="muted">Cocokkan wajah dengan foto sebelum mempersilakan masuk.</p>' + tambahan(r);
   }
   $('v-scan').onclick = function (e) {
     var a = e.target.getAttribute('data-a');
     if (a === 'manual') { var v = $('manual').value.trim().toUpperCase(); if (/^\d{1,4}$/.test(v)) v = 'M' + ('0000' + v).slice(-4); if (v) { catat(v); $('manual').value = ''; } }
     if (a === 'fotoqr') $('fqr').click();
+    if (a === 'fotolengkap') { fotoTarget = e.target.getAttribute('data-id'); $('ffoto').click(); }
     if (a === 'jaditamu') { D.mode = 'tamu'; D.layar = 'form'; buka('daftar'); }
     if (a === 'linkbaru2') {
       var idm = e.target.getAttribute('data-id'), nm = e.target.getAttribute('data-nm');
-      if (!confirm('Buat link kartu baru untuk ' + nm + '? Link dan QR lama langsung mati.')) return;
+      if (e.target.getAttribute('data-link') !== '0' && !confirm('Buat link kartu baru untuk ' + nm + '? Link dan QR lama langsung mati.')) return;
       kirim('aksesBaru', { id: idm }).then(function (r) {
         if (!r.ok) return toast(kataKunci(r), true);
         var l = linkKartu(r.token);
@@ -173,8 +182,8 @@
         (D.foto ? '<div class="panel" style="align-items:center"><img alt="Foto wajah" src="' + esc(D.foto) + '" style="width:120px;height:150px;object-fit:cover;border-radius:14px"><button class="sec" data-a="foto">Ulangi foto</button></div>' : '<button class="sec" data-a="foto" style="min-height:84px;border-style:dashed">Ketuk untuk ambil foto wajah</button>');
     } else {
       h += '<div class="f"><label for="dq">Cari member (nama atau nomor WA)</label><input id="dq" type="search" value="' + esc(D.q) + '" placeholder="Minimal 2 huruf"></div><button class="sec" data-a="cari">Cari</button>';
-      if (D.hasil.length && !D.pilih) h += '<div class="list">' + D.hasil.map(function (m) { return '<button data-a="pilih" data-id="' + esc(m.id) + '" data-nm="' + esc(m.nama) + '">' + esc(m.nama) + '<br><span class="muted">' + esc(m.wa) + ' - ' + (m.aktif ? 'aktif sampai ' + fmtTgl(m.tglHabis) : 'tidak aktif') + '</span></button>'; }).join('') + '</div>';
-      if (D.pilih) h += '<div class="panel"><div class="row"><span>Member</span><span>' + esc(D.pilih.nama) + '</span></div><button class="sec" data-a="ganti">Pilih member lain</button><button class="sec" data-a="linkbaru">Kirim ulang link (membuat link baru)</button></div>';
+      if (D.hasil.length && !D.pilih) h += '<div class="list">' + D.hasil.map(function (m) { return '<button data-a="pilih" data-f="' + (m.foto ? '1' : '0') + '" data-l="' + (m.link ? '1' : '0') + '" data-id="' + esc(m.id) + '" data-nm="' + esc(m.nama) + '">' + esc(m.nama) + '<br><span class="muted">' + esc(m.wa) + ' - ' + (m.aktif ? 'aktif sampai ' + fmtTgl(m.tglHabis) : 'tidak aktif') + (m.foto ? '' : ' - FOTO BELUM ADA') + '</span></button>'; }).join('') + '</div>';
+      if (D.pilih) h += '<div class="panel"><div class="row"><span>Member</span><span>' + esc(D.pilih.nama) + '</span></div><button class="sec" data-a="ganti">Pilih member lain</button>' + (D.pilih.foto === false ? '<p class="gal" style="margin:0">Foto wajah belum ada.</p><button data-a="fotodaftar">Ambil foto wajah sekarang</button>' : '') + '<button class="sec" data-a="linkbaru">' + (D.pilih.link === false ? 'Buat dan kirim link kartu' : 'Kirim ulang link (membuat link baru)') + '</button></div>';
     }
     h += '<div class="panel"><div class="row"><span>Iuran 1 bulan</span><span>' + rp(S.harga.member) + '</span></div>' + seg([['Tunai', 'Tunai'], ['Transfer', 'Transfer']], D.metode, 'metode') + '</div>';
     h += '<button data-a="lanjut" style="min-height:56px">Lanjut: cek uang diterima</button>';
@@ -201,7 +210,8 @@
     if (a === 'metode') { D.metode = v; gambarDaftar(); }
     if (a === 'foto') $('ffoto').click();
     if (a === 'cari') kirim('cari', { q: D.q }).then(function (r) { D.hasil = r.hasil || []; D.pilih = null; gambarDaftar(); if (!D.hasil.length) toast('Tidak ada member yang cocok.', true); }).catch(jaringan);
-    if (a === 'pilih') { D.pilih = { id: el.getAttribute('data-id'), nama: el.getAttribute('data-nm') }; gambarDaftar(); }
+    if (a === 'pilih') { D.pilih = { id: el.getAttribute('data-id'), nama: el.getAttribute('data-nm'), foto: el.getAttribute('data-f') === '1', link: el.getAttribute('data-l') === '1' }; gambarDaftar(); }
+    if (a === 'fotodaftar') { fotoTarget = D.pilih.id; $('ffoto').click(); }
     if (a === 'ganti') { D.pilih = null; gambarDaftar(); }
     if (a === 'linkbaru') kirim('aksesBaru', { id: D.pilih.id }).then(function (r) {
       if (!r.ok) return toast(kataKunci(r), true);
@@ -227,8 +237,18 @@
     if (a === 'selesai') { D = { mode: D.mode, metode: 'Tunai', nama: '', wa: '', foto: '', q: '', hasil: [], pilih: null, layar: 'form', sukses: null, sibuk: false }; gambarDaftar(); }
   };
   $('ffoto').onchange = function () {
-    var f = this.files[0]; this.value = ''; if (!f) return;
-    muatGambar(f, 480).then(function (c) { D.foto = c.toDataURL('image/jpeg', 0.72); gambarDaftar(); }).catch(function () { toast('Foto tidak dapat dibuka. Coba lagi.', true); });
+    var f = this.files[0]; this.value = ''; if (!f) { fotoTarget = ''; return; }
+    var tg = fotoTarget; fotoTarget = '';
+    muatGambar(f, 480).then(function (c) {
+      var url = c.toDataURL('image/jpeg', 0.72);
+      if (!tg) { D.foto = url; gambarDaftar(); return; }
+      kirim('fotoLengkapi', { id: tg, foto: url }).then(function (r) {
+        if (!r.ok) return toast(kataKunci(r), true);
+        toast('Foto tersimpan.');
+        if (D.pilih && D.pilih.id === tg) { D.pilih.foto = true; gambarDaftar(); }
+        if (lastScan && lastScan.id === tg) { lastScan.foto = url; tampilScan(lastScan); }
+      }).catch(jaringan);
+    }).catch(function () { toast('Foto tidak dapat dibuka. Coba lagi.', true); });
   };
 
   /* ---------- Tamu harian ---------- */
