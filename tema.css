@@ -31,3 +31,14 @@ button.sec{background:transparent!important;color:#fff!important;border:1px soli
 .qb{position:absolute;top:-8px;right:-8px;min-width:28px;height:28px;border-radius:14px;background:var(--lm);color:#0B0B0C;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:14px;pointer-events:none}
 .min{position:absolute;bottom:8px;right:8px;width:44px;min-height:44px!important;height:44px;border-radius:12px;background:var(--s2)!important;color:#fff!important;border:1px solid var(--muted)!important;font-size:22px;padding:0}
 select{min-height:48px;width:100%;border-radius:12px;border:1px solid var(--brd);background:#0B0B0C;color:#fff;padding:0 14px;font-size:16px}
+/* ---- daftar dan detail member ---- */
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}.chb{min-height:40px!important;padding:0 14px;border-radius:999px;font-size:13px;white-space:nowrap;background:transparent!important;color:var(--muted)!important;border:1px solid var(--brd)!important}
+.chb.on{background:var(--biru)!important;color:#fff!important;border:0!important}
+.mr{width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:var(--s1)!important;color:#fff!important;border:1px solid var(--brd)!important;border-radius:14px;padding:10px 12px;min-height:64px;margin-bottom:8px}
+.mav{width:44px;height:44px;border-radius:22px;background:var(--s2);border:1px solid var(--brd);display:flex;align-items:center;justify-content:center;font-weight:800;flex:none}
+.mi{flex:1;min-width:0}.mi b{display:block;font-size:16px}.mi small{display:block;color:var(--muted);font-size:13px;font-weight:400}
+.chp{border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;white-space:nowrap}.chp.a{background:var(--lm);color:#0B0B0C}.chp.x{background:var(--merahbg);color:var(--merah);border:1px solid var(--biru)}.chp.w{border:1px solid var(--lm);color:var(--lm)}
+.dh{display:flex;gap:16px;align-items:center}.dfoto{width:110px;height:136px;border-radius:16px;overflow:hidden;border:3px solid var(--lm);background:var(--s2);flex:none}.dfoto img,.dfoto svg{width:100%;height:100%;object-fit:cover;display:block}
+.lm{color:var(--lm)!important}.kb{text-align:left;width:100%;border:1px solid var(--brd)!important;background:var(--s1)!important;color:#fff!important;display:block;min-height:0!important;padding:14px!important;border-radius:16px}
+.kb b{display:block;font-size:26px;line-height:1.2}.kb span{font-size:13px;color:var(--muted);font-weight:400}
+.heat{display:grid;grid-template-columns:34px repeat(9,1fr);gap:3px;align-items:center;font-size:11px;color:var(--muted)}.heat i{display:block;height:24px;border-radius:5px}

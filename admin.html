@@ -6,7 +6,7 @@
 <link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="D-CHA Admin">
-<script src="config.js"></script><script src="app.js"></script><script src="dash.js"></script><script src="pin.js"></script></head>
+<script src="config.js"></script><script src="app.js"></script><script src="dash.js"></script><script src="pin.js"></script><script src="mui.js"></script></head>
 <body><main class="wrap" id="app">
 <section id="v-login" hidden>
   <div class="card"><img src="icons/icon-192.png" width="96" height="96" alt="Logo D-CHA GYM"><div class="nama">Masuk Admin</div>
@@ -28,8 +28,8 @@
   <div id="v-tamu" class="v" style="display:none;flex-direction:column;gap:14px"></div>
   <div id="v-jual" class="v" style="display:none;flex-direction:column;gap:14px"></div>
   <div id="v-kas" class="v" style="display:none;flex-direction:column;gap:14px"></div>
-  <div id="v-dash" class="v" style="display:none;flex-direction:column;gap:14px"></div>
-  <nav class="nav" id="nav"><button data-n="scan" class="on">Scan</button><button data-n="jual">Jual</button><button data-n="daftar">Daftar</button><button data-n="kas">Kas</button><button data-n="dash">Grafik</button></nav>
+  <div id="v-member" class="v" style="display:none;flex-direction:column;gap:14px"></div>
+  <nav class="nav" id="nav"><button data-n="scan" class="on">Scan</button><button data-n="jual">Jual</button><button data-n="daftar">Daftar</button><button data-n="member">Member</button><button data-n="kas">Kas</button></nav>
 </section>
 <input id="ffoto" type="file" accept="image/*" capture="user" hidden>
 </main>
@@ -77,12 +77,12 @@
   $('gpin').onclick = function () { bukaGantiPin({ kirim: kirim, toast: toast, wajib: false }); };
 
   /* ---------- Navigasi ---------- */
-  var JUDUL = { scan: 'Scan presensi', daftar: 'Daftar / perpanjang', tamu: 'Daftar / perpanjang / tamu', jual: 'Jual produk', kas: 'Tutup kas harian', dash: 'Dashboard' };
+  var JUDUL = { scan: 'Scan presensi', daftar: 'Daftar / perpanjang', tamu: 'Daftar / perpanjang / tamu', jual: 'Jual produk', kas: 'Tutup kas harian', member: 'Member' };
   function buka(n) {
-    ['scan', 'jual', 'daftar', 'tamu', 'kas', 'dash'].forEach(function (x) { var v = $('v-' + x); v.style.display = (x === 'tamu' ? (n === 'daftar' && D.mode === 'tamu') : x === n) ? 'flex' : 'none'; });
+    ['scan', 'jual', 'daftar', 'tamu', 'kas', 'member'].forEach(function (x) { var v = $('v-' + x); v.style.display = (x === 'tamu' ? (n === 'daftar' && D.mode === 'tamu') : x === n) ? 'flex' : 'none'; });
     document.querySelectorAll('#nav button').forEach(function (b) { b.className = b.getAttribute('data-n') === n ? 'on' : ''; });
     $('judul').textContent = JUDUL[n === 'daftar' && D.mode === 'tamu' ? 'tamu' : n]; stopKamera();
-    if (n === 'scan') mulaiKamera(); if (n === 'daftar') gambarDaftar(); if (n === 'jual') muatJual(); if (n === 'kas') muatKas(); if (n === 'dash') muatDash();
+    if (n === 'scan') mulaiKamera(); if (n === 'daftar') gambarDaftar(); if (n === 'jual') muatJual(); if (n === 'kas') muatKas(); if (n === 'member') MU.buka();
   }
   $('nav').onclick = function (e) { var n = e.target.getAttribute('data-n'); if (n) buka(n); };
 
@@ -247,6 +247,7 @@
         toast('Foto tersimpan.');
         if (D.pilih && D.pilih.id === tg) { D.pilih.foto = true; gambarDaftar(); }
         if (lastScan && lastScan.id === tg) { lastScan.foto = url; tampilScan(lastScan); }
+        if (MU.detailId() === tg) MU.segarkan();
       }).catch(jaringan);
     }).catch(function () { toast('Foto tidak dapat dibuka. Coba lagi.', true); });
   };
@@ -345,7 +346,9 @@
       kirim('kasHitung', { tunaiDihitung: angka(K.laci), alasan: K.alasan }).then(function (r) { K.sibuk = false; if (!r.ok) { gambarKas(); return toast(kataKunci(r), true); } toast(r.selisih ? 'Terkirim. Ada selisih ' + rp(Math.abs(r.selisih)) + '.' : 'Terkirim ke pemilik. Kas cocok.'); K.laci = ''; K.alasan = ''; muatKas(); }).catch(function (x) { K.sibuk = false; gambarKas(); jaringan(x); });
     }
   };
-  function muatDash() { $('v-dash').innerHTML = '<p class="muted">Memuat dashboard...</p>'; kirim('dashboard', {}).then(function (r) { if (!r.ok) return toast(kataKunci(r), true); renderDash($('v-dash'), r); }).catch(jaringan); }
+
+  var MU = MemberUI({ el: $('v-member'), kirim: kirim, toast: toast, esc: esc, rp: rp, fmtTgl: fmtTgl, msg: kataKunci, jaringan: jaringan, bisaLink: true, linkKartu: linkKartu, waUrl: waUrl,
+    aksi: { perpanjang: function (m) { D = { mode: 'perpanjang', metode: 'Tunai', nama: '', wa: '', foto: '', q: '', hasil: [], pilih: m, layar: 'form', sukses: null, sibuk: false }; buka('daftar'); }, fotoLengkap: function (id) { fotoTarget = id; $('ffoto').click(); } } });
 
   /* ---------- Mulai ---------- */
   setTimeout(function () { var j = document.createElement('script'); j.src = 'jsQR.js'; document.head.appendChild(j); }, 0); // pemindai dimuat setelah layar tampil
