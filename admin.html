@@ -82,7 +82,7 @@
     ['scan', 'jual', 'daftar', 'tamu', 'kas', 'member'].forEach(function (x) { var v = $('v-' + x); v.style.display = (x === 'tamu' ? (n === 'daftar' && D.mode === 'tamu') : x === n) ? 'flex' : 'none'; });
     document.querySelectorAll('#nav button').forEach(function (b) { b.className = b.getAttribute('data-n') === n ? 'on' : ''; });
     $('judul').textContent = JUDUL[n === 'daftar' && D.mode === 'tamu' ? 'tamu' : n]; stopKamera();
-    if (n === 'scan') mulaiKamera(); if (n === 'daftar') gambarDaftar(); if (n === 'jual') muatJual(); if (n === 'kas') muatKas(); if (n === 'member') MU.buka();
+    if (n === 'scan') { batalHapus(); $('hasil').innerHTML = ''; lastScan = null; mulaiKamera(); } if (n === 'daftar') gambarDaftar(); if (n === 'jual') muatJual(); if (n === 'kas') muatKas(); if (n === 'member') MU.buka();
   }
   $('nav').onclick = function (e) { var n = e.target.getAttribute('data-n'); if (n) buka(n); };
 
@@ -123,11 +123,13 @@
     });
   }
   function catat(kode) {
-    jeda = Date.now() + 2500; if (navigator.vibrate) navigator.vibrate(60);
+    batalHapus(); jeda = Date.now() + 2500; if (navigator.vibrate) navigator.vibrate(60);
     $('hasil').innerHTML = '<div class="panel"><b>QR terbaca. Memeriksa member...</b><p class="muted" style="margin:0">Tunggu sebentar, jangan scan ulang.</p></div>';
     kirim('scan', { kode: kode }).then(tampilScan).catch(jaringan);
   }
-  var fotoTarget = '', lastScan = null;
+  var fotoTarget = '', lastScan = null, hasilT = null;
+  function batalHapus() { if (hasilT) { clearTimeout(hasilT); hasilT = null; } }
+  function hapusHasilNanti(ms) { batalHapus(); hasilT = setTimeout(function () { hasilT = null; $('hasil').innerHTML = ''; lastScan = null; }, ms); }
   function tambahan(r) {
     var x = '';
     if (!r.foto) x += '<p class="gal">Foto wajah belum ada. Lengkapi sekarang supaya wajah bisa dicocokkan.</p><button data-a="fotolengkap" data-id="' + esc(r.id) + '">Lengkapi foto sekarang</button>';
@@ -136,6 +138,11 @@
     return x;
   }
   function tampilScan(r) {
+    batalHapus(); gambarScan(r);
+    if (r.ok) $('hasil').insertAdjacentHTML('beforeend', '<p class="muted" style="margin:0;font-size:12px">Hasil ini hilang otomatis.</p>');
+    hapusHasilNanti(!r.ok ? 8000 : (!r.aktif ? 25000 : ((r.foto && r.link !== false) ? 8000 : 25000)));
+  }
+  function gambarScan(r) {
     lastScan = r; var b = $('hasil');
     if (!r.ok) { b.innerHTML = '<div class="hasil x"><div class="ph">!</div><div><div class="nama" style="font-size:18px">' + esc(kataKunci(r)) + '</div><p class="muted">Coba scan ulang atau ketik nomor WA.</p></div></div>'; return; }
     var foto = r.foto ? '<img alt="Foto member" src="' + esc(r.foto) + '">' : '<div class="ph">' + esc(String(r.nama).charAt(0)) + '</div>';
@@ -147,7 +154,7 @@
     b.innerHTML = '<div class="hasil">' + foto + '<div><div class="nama" style="font-size:20px">' + esc(r.nama) + '</div><span class="badge">AKTIF</span><p class="muted">Sampai ' + esc(fmtTgl(r.tglHabis)) + '</p><p style="margin:0;font-weight:600">' + esc(aksi) + '</p></div></div><p class="muted">Cocokkan wajah dengan foto sebelum mempersilakan masuk.</p>' + tambahan(r);
   }
   $('v-scan').onclick = function (e) {
-    var a = e.target.getAttribute('data-a');
+    var a = e.target.getAttribute('data-a'); if (a) batalHapus();
     if (a === 'manual') { var v = $('manual').value.trim().toUpperCase(); if (/^\d{1,4}$/.test(v)) v = 'M' + ('0000' + v).slice(-4); if (v) { catat(v); $('manual').value = ''; } }
     if (a === 'fotoqr') $('fqr').click();
     if (a === 'fotolengkap') { fotoTarget = e.target.getAttribute('data-id'); $('ffoto').click(); }
@@ -310,19 +317,38 @@
   };
 
   /* ---------- Kas harian ---------- */
-  var K = { data: null, laci: '', alasan: '', kj: '', ka: '', sibuk: false };
+  var K = { data: null, laci: '', alasan: '', kj: '', ka: '', sibuk: false, tgl: '', kemarin: null };
   var baris = function (a, b, c) { return '<div class="row"><span>' + esc(a) + '</span><span' + (c ? ' class="' + c + '"' : '') + '>' + esc(b) + '</span></div>'; };
   var angka = function (v) { return parseInt(String(v).replace(/\D/g, ''), 10) || 0; };
-  function muatKas() { $('v-kas').innerHTML = '<p class="muted">Memuat kas hari ini...</p>'; kirim('kasHariIni', {}).then(function (r) { if (!r.ok) return toast(kataKunci(r), true); K.data = r; gambarKas(); }).catch(jaringan); }
+  var rpS = function (n) { return (n < 0 ? '-' : '') + rp(Math.abs(n)); };
+  function panelAdmin(r) {
+    if (!r.perAdmin || !r.perAdmin.length) return '';
+    var me = S.user && S.user.id;
+    return '<div class="panel"><b>Rincian per admin</b>' + r.perAdmin.map(function (x) {
+      return '<div class="lr"><div>' + esc(x.nama) + (x.id === me ? ' (Anda)' : '') + '<small>Tunai ' + rp(x.tunai) + ' - Transfer ' + rp(x.transfer) + ' - Keluar ' + rp(x.keluar) + '</small></div><b>' + rpS(x.bersih) + '</b></div>';
+    }).join('') + '<p class="muted" style="margin:0">Angka di kanan: tunai bersih yang dicatat tiap admin (tunai dikurangi uang keluar).</p></div>';
+  }
+  function muatKas(tgl) {
+    K.tgl = tgl || ''; $('v-kas').innerHTML = '<p class="muted">Memuat kas...</p>';
+    kirim('kasHariIni', K.tgl ? { tanggal: K.tgl } : {}).then(function (r) {
+      if (!r.ok) return toast(kataKunci(r), true);
+      K.data = r; if (!K.tgl) K.kemarin = r.kemarin || null; gambarKas();
+    }).catch(jaringan);
+  }
   function gambarKas() {
-    var r = K.data, t = r.tutup, kunci = !!(t && t.terkunci), h = '';
-    h += '<div class="panel"><b>Pemasukan hari ini (otomatis)</b>' + baris('Member baru', rp(r.memberBaru)) + baris('Perpanjangan', rp(r.perpanjangan)) + baris('Tamu harian', rp(r.tamu)) + baris('Penjualan produk', rp(r.produk)) + '<div style="border-top:1px solid var(--brd);padding-top:8px;display:flex;flex-direction:column;gap:10px">' + baris('Tunai', rp(r.tunai)) + baris('Transfer', rp(r.transfer)) + '</div></div>';
+    var r = K.data, t = r.tutup, kunci = !!(t && t.terkunci), h = '', lb = K.tgl ? 'kemarin' : 'hari ini';
+    h += seg([['', 'Hari ini'], ['kemarin', 'Kemarin']], K.tgl ? 'kemarin' : '', 'hari');
+    if (K.tgl) h += '<p class="muted" style="margin:0">Kas tanggal ' + esc(fmtTgl(r.tanggal)) + '. Hitung hanya uang tunai kemarin yang masih Anda simpan terpisah. Jangan campur dengan uang hari ini.</p>';
+    else if (K.kemarin && K.kemarin.ada && !K.kemarin.terkunci && !K.kemarin.dihitung) h += '<div class="panel" style="border:2px solid #B3121F"><b>Kas kemarin belum dikirim ke pemilik</b><p class="muted" style="margin:0">Tanggal ' + esc(fmtTgl(K.kemarin.tanggal)) + '. Hitung uang kemarin yang disimpan, lalu kirim.</p><button data-a="hari" data-v="kemarin">Hitung kas kemarin</button></div>';
+    h += '<div class="panel"><b>Pemasukan ' + lb + ' (otomatis)</b>' + baris('Member baru', rp(r.memberBaru)) + baris('Perpanjangan', rp(r.perpanjangan)) + baris('Tamu harian', rp(r.tamu)) + baris('Penjualan produk', rp(r.produk)) + '<div style="border-top:1px solid var(--brd);padding-top:8px;display:flex;flex-direction:column;gap:10px">' + baris('Tunai', rp(r.tunai)) + baris('Transfer', rp(r.transfer)) + '</div></div>';
     h += '<div class="panel"><b>Uang keluar dari laci</b>' + (r.keluar.length ? r.keluar.map(function (x) { return baris(x.alasan + ' (' + x.jam + ')', rp(x.jumlah)); }).join('') : '<p class="muted" style="margin:0">Belum ada.</p>');
-    if (!kunci) h += '<div class="f"><label for="kj">Jumlah (Rp)</label><input id="kj" type="text" inputmode="numeric" value="' + esc(K.kj) + '" placeholder="Contoh: 25000"></div><div class="f"><label for="ka">Alasan</label><input id="ka" type="text" value="' + esc(K.ka) + '" placeholder="Contoh: beli galon"></div><button class="sec" data-a="keluar">Catat uang keluar</button>';
+    if (!kunci && K.tgl) h += '<p class="muted" style="margin:0">Uang keluar hanya bisa dicatat untuk hari ini. Jika kemarin ada uang keluar yang belum dicatat, beri tahu pemilik.</p>';
+    if (!kunci && !K.tgl) h += '<div class="f"><label for="kj">Jumlah (Rp)</label><input id="kj" type="text" inputmode="numeric" value="' + esc(K.kj) + '" placeholder="Contoh: 25000"></div><div class="f"><label for="ka">Alasan</label><input id="ka" type="text" value="' + esc(K.ka) + '" placeholder="Contoh: beli galon"></div><button class="sec" data-a="keluar">Catat uang keluar</button>';
     h += '</div>';
-    if (kunci) h += '<div class="panel" style="border:2px solid var(--biru)"><b>Kas hari ini sudah ditutup dan dikunci</b>' + baris('Tunai dihitung', rp(t.tunaiDihitung)) + baris('Selisih', rp(t.selisih), t.selisih ? 'neg' : '') + baris('Dikunci oleh', t.ditutupOleh) + '</div>';
+    h += panelAdmin(r);
+    if (kunci) h += '<div class="panel" style="border:2px solid var(--biru)"><b>Kas ' + lb + ' sudah ditutup dan dikunci</b>' + baris('Tunai dihitung', rp(t.tunaiDihitung)) + baris('Selisih', rp(t.selisih), t.selisih ? 'neg' : '') + baris('Dikunci oleh', t.ditutupOleh) + '</div>';
     else {
-      h += '<div class="panel"><div class="f"><label for="kh" style="font-size:15px;font-weight:600;color:var(--ink)">Uang tunai di laci (hitung fisik)</label><input id="kh" type="text" inputmode="numeric" value="' + esc(K.laci) + '" placeholder="Ketik jumlah uang tunai"></div>' + baris('Seharusnya ada', rp(r.tunaiSeharusnya)) + '<div class="row"><span>Selisih</span><span id="ks">-</span></div><div class="f" id="kalw" hidden><label for="kal">Alasan selisih (wajib diisi)</label><input id="kal" type="text" value="' + esc(K.alasan) + '" placeholder="Tulis penyebab selisih"></div></div>';
+      h += '<div class="panel"><div class="f"><label for="kh" style="font-size:15px;font-weight:600;color:var(--ink)">Uang tunai ' + (K.tgl ? 'kemarin' : 'di laci') + ' (hitung fisik)</label><input id="kh" type="text" inputmode="numeric" value="' + esc(K.laci) + '" placeholder="Ketik jumlah uang tunai"></div>' + baris('Seharusnya ada', rp(r.tunaiSeharusnya)) + '<div class="row"><span>Selisih</span><span id="ks">-</span></div><div class="f" id="kalw" hidden><label for="kal">Alasan selisih (wajib diisi)</label><input id="kal" type="text" value="' + esc(K.alasan) + '" placeholder="Tulis penyebab selisih"></div></div>';
       if (t && t.dihitungOleh) h += '<p class="muted">Sudah dihitung oleh ' + esc(t.dihitungOleh) + ' (' + rp(t.tunaiDihitung) + '). Menunggu pemilik menutup. Anda boleh menghitung ulang.</p>';
       h += '<button data-a="hitung" style="min-height:56px"' + (K.sibuk ? ' disabled' : '') + '>Kirim ke pemilik</button>';
     }
@@ -336,6 +362,12 @@
   $('v-kas').oninput = function (e) { var i = e.target.id; if (i === 'kh') { K.laci = e.target.value; selisihKas(); } if (i === 'kal') K.alasan = e.target.value; if (i === 'kj') K.kj = e.target.value; if (i === 'ka') K.ka = e.target.value; };
   $('v-kas').onclick = function (e) {
     var a = e.target.getAttribute('data-a'); if (!a || K.sibuk) return;
+    if (a === 'hari') {
+      var mau = e.target.getAttribute('data-v') === 'kemarin';
+      if (mau === !!K.tgl) return;
+      if (mau && !K.kemarin) return toast('Data kemarin belum tersedia. Buka ulang tab Kas.', true);
+      K.laci = ''; K.alasan = ''; muatKas(mau ? K.kemarin.tanggal : ''); return;
+    }
     if (a === 'keluar') {
       if (!angka(K.kj)) return toast('Isi jumlah uang keluar.', true); if (K.ka.trim().length < 3) return toast('Isi alasan uang keluar.', true);
       K.sibuk = true; kirim('kasKeluar', { jumlah: angka(K.kj), alasan: K.ka }).then(function (r) { K.sibuk = false; if (!r.ok) return toast(kataKunci(r), true); K.kj = ''; K.ka = ''; toast('Uang keluar dicatat.'); muatKas(); }).catch(function (x) { K.sibuk = false; jaringan(x); });
@@ -343,7 +375,7 @@
     if (a === 'hitung') {
       if (K.laci === '') return toast('Ketik jumlah uang tunai di laci.', true);
       K.sibuk = true; gambarKas();
-      kirim('kasHitung', { tunaiDihitung: angka(K.laci), alasan: K.alasan }).then(function (r) { K.sibuk = false; if (!r.ok) { gambarKas(); return toast(kataKunci(r), true); } toast(r.selisih ? 'Terkirim. Ada selisih ' + rp(Math.abs(r.selisih)) + '.' : 'Terkirim ke pemilik. Kas cocok.'); K.laci = ''; K.alasan = ''; muatKas(); }).catch(function (x) { K.sibuk = false; gambarKas(); jaringan(x); });
+      var utk = K.tgl ? 'Kas kemarin ' : ''; kirim('kasHitung', { tunaiDihitung: angka(K.laci), alasan: K.alasan, tanggal: K.tgl || undefined }).then(function (r) { K.sibuk = false; if (!r.ok) { gambarKas(); return toast(kataKunci(r), true); } toast(r.selisih ? utk + 'terkirim. Ada selisih ' + rp(Math.abs(r.selisih)) + '.' : (utk ? 'Kas kemarin terkirim ke pemilik. Kas cocok.' : 'Terkirim ke pemilik. Kas cocok.')); K.laci = ''; K.alasan = ''; muatKas(''); }).catch(function (x) { K.sibuk = false; gambarKas(); jaringan(x); });
     }
   };
 

@@ -68,6 +68,13 @@
   function hariIniLokal() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   var P = { tgl: '', data: null, cocok: 'Cocok', catatan: '', sibuk: false };
   var baris = function (a, b, c) { return '<div class="row"><span>' + esc(a) + '</span><span' + (c ? ' class="' + c + '"' : '') + '>' + esc(b) + '</span></div>'; };
+  var rpS = function (n) { return (n < 0 ? '-' : '') + rp(Math.abs(n)); };
+  function panelAdmin(r) {
+    if (!r.perAdmin || !r.perAdmin.length) return '';
+    return '<div class="panel"><b>Rincian per admin</b>' + r.perAdmin.map(function (x) {
+      return '<div class="lr"><div>' + esc(x.nama) + '<small>Tunai ' + rp(x.tunai) + ' - Transfer ' + rp(x.transfer) + ' - Keluar ' + rp(x.keluar) + '</small></div><b>' + rpS(x.bersih) + '</b></div>';
+    }).join('') + '<p class="muted" style="margin:0">Angka di kanan: tunai bersih yang dicatat tiap admin (tunai dikurangi uang keluar).</p></div>';
+  }
   function muatKas(tgl) {
     P.tgl = tgl || P.tgl; $('v-kas').innerHTML = '<p class="muted">Memuat kas...</p>';
     kirim('kasHariIni', P.tgl ? { tanggal: P.tgl } : {}).then(function (r) { if (!r.ok) return toast(msg(r), true); P.data = r; P.tgl = r.tanggal; gambarKas(); }).catch(jaringan);
@@ -77,6 +84,7 @@
     var h = '<div class="panel"><div class="f"><label for="tgl">Tanggal</label><input id="tgl" type="date" value="' + esc(P.tgl) + '" style="min-height:48px;border:1px solid #C5CEDF;border-radius:12px;padding:0 14px;font-size:16px;background:#fff"></div><button class="sec" data-a="muat">Tampilkan tanggal ini</button></div>';
     h += '<div class="panel"><b>Pemasukan (otomatis)</b>' + baris('Member baru', rp(r.memberBaru)) + baris('Perpanjangan', rp(r.perpanjangan)) + baris('Tamu harian', rp(r.tamu)) + baris('Penjualan produk', rp(r.produk)) + '<div style="border-top:1px solid var(--brd);padding-top:8px;display:flex;flex-direction:column;gap:10px">' + baris('Tunai', rp(r.tunai)) + baris('Transfer', rp(r.transfer)) + '</div></div>';
     h += '<div class="panel"><b>Uang keluar dari laci</b>' + (r.keluar.length ? r.keluar.map(function (x) { return baris(x.alasan + ' (' + x.jam + ', ' + x.oleh + ')', rp(x.jumlah)); }).join('') : '<p class="muted" style="margin:0">Tidak ada.</p>') + '</div>';
+    h += panelAdmin(r);
     if (dihitung) h += '<div class="panel"' + (kunci ? ' style="border:2px solid var(--biru)"' : '') + '><b>Hitungan admin (' + esc(t.dihitungOleh) + ')</b>' + baris('Tunai seharusnya', rp(r.tunaiSeharusnya)) + baris('Dihitung admin', rp(t.tunaiDihitung)) + baris('Selisih', (t.selisih < 0 ? '-' : '') + rp(Math.abs(t.selisih)), t.selisih ? 'neg' : '') + (t.alasanSelisih ? '<p class="muted" style="margin:0">Alasan: ' + esc(t.alasanSelisih) + '</p>' : '') + '</div>';
     else h += '<div class="panel"><b>Admin belum menghitung kas tanggal ini</b><p class="muted" style="margin:0">Penutupan baru bisa dilakukan setelah admin menekan Kirim ke pemilik.</p></div>';
     if (kunci) h += '<div class="panel" style="border:2px solid var(--biru)"><b>Sudah ditutup dan dikunci</b>' + baris('Oleh', t.ditutupOleh) + baris('Transfer', t.transferCocok || '-') + '</div>';
