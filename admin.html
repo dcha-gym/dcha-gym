@@ -31,7 +31,7 @@
   <div id="v-member" class="v" style="display:none;flex-direction:column;gap:14px"></div>
   <nav class="nav" id="nav"><button data-n="scan" class="on">Scan</button><button data-n="jual">Jual</button><button data-n="daftar">Daftar</button><button data-n="member">Member</button><button data-n="kas">Kas</button></nav>
 </section>
-<input id="ffoto" type="file" accept="image/*" hidden>
+<input id="ffoto" type="file" accept="image/*" capture="user" hidden><input id="ffoto2" type="file" accept="image/*" hidden>
 </main>
 <script>
 (function () {
@@ -157,7 +157,7 @@
     var a = e.target.getAttribute('data-a'); if (a) batalHapus();
     if (a === 'manual') { var v = $('manual').value.trim().toUpperCase(); if (/^\d{1,4}$/.test(v)) v = 'M' + ('0000' + v).slice(-4); if (v) { catat(v); $('manual').value = ''; } }
     if (a === 'fotoqr') $('fqr').click();
-    if (a === 'fotolengkap') { fotoTarget = e.target.getAttribute('data-id'); $('ffoto').click(); }
+    if (a === 'fotolengkap') { fotoTarget = e.target.getAttribute('data-id'); sumberFoto(); }
     if (a === 'jaditamu') { D.mode = 'tamu'; D.layar = 'form'; buka('daftar'); }
     if (a === 'linkbaru2') {
       var idm = e.target.getAttribute('data-id'), nm = e.target.getAttribute('data-nm');
@@ -216,10 +216,10 @@
     var el = e.target.closest('[data-a]'); if (!el) return; var a = el.getAttribute('data-a'), v = el.getAttribute('data-v');
     if (a === 'mode') { D.mode = v; D.pilih = null; D.hasil = []; D.layar = 'form'; gambarDaftar(); }
     if (a === 'metode') { D.metode = v; gambarDaftar(); }
-    if (a === 'foto') $('ffoto').click();
+    if (a === 'foto') { fotoTarget = ''; sumberFoto(); }
     if (a === 'cari') kirim('cari', { q: D.q }).then(function (r) { D.hasil = r.hasil || []; D.pilih = null; gambarDaftar(); if (!D.hasil.length) toast('Tidak ada member yang cocok.', true); }).catch(jaringan);
     if (a === 'pilih') { D.pilih = { id: el.getAttribute('data-id'), nama: el.getAttribute('data-nm'), foto: el.getAttribute('data-f') === '1', link: el.getAttribute('data-l') === '1' }; gambarDaftar(); }
-    if (a === 'fotodaftar') { fotoTarget = D.pilih.id; $('ffoto').click(); }
+    if (a === 'fotodaftar') { fotoTarget = D.pilih.id; sumberFoto(); }
     if (a === 'ganti') { D.pilih = null; gambarDaftar(); }
     if (a === 'linkbaru') kirim('aksesBaru', { id: D.pilih.id }).then(function (r) {
       if (!r.ok) return toast(kataKunci(r), true);
@@ -244,6 +244,17 @@
     if (a === 'salin') { var i = $('lk'); i.select(); try { navigator.clipboard.writeText(i.value).then(function () { toast('Link disalin.'); }, function () { document.execCommand('copy'); toast('Link disalin.'); }); } catch (x) { document.execCommand('copy'); toast('Link disalin.'); } }
     if (a === 'selesai') { D = { mode: D.mode, metode: 'Tunai', nama: '', wa: '', foto: '', q: '', hasil: [], pilih: null, layar: 'form', sukses: null, sibuk: false }; gambarDaftar(); }
   };
+  function sumberFoto() {
+    var o = document.createElement('div');
+    o.style.cssText = 'position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.7);z-index:60;display:flex;align-items:flex-end;justify-content:center';
+    o.innerHTML = '<div class="panel" style="width:100%;max-width:520px;margin:0;border-radius:18px 18px 0 0;gap:10px"><b>Foto wajah member</b><button data-s="kamera" style="min-height:56px">Ambil foto dengan kamera</button><button class="sec" data-s="galeri" style="min-height:56px">Pilih dari galeri atau berkas</button><button class="sec" data-s="batal" style="min-height:48px">Batal</button></div>';
+    o.onclick = function (e) {
+      var s = e.target === o ? 'batal' : e.target.getAttribute('data-s'); if (!s) return;
+      o.remove();
+      if (s === 'kamera') $('ffoto').click(); else if (s === 'galeri') $('ffoto2').click(); else fotoTarget = '';
+    };
+    document.body.appendChild(o);
+  }
   $('ffoto').onchange = function () {
     var f = this.files[0]; this.value = ''; if (!f) { fotoTarget = ''; return; }
     var tg = fotoTarget; fotoTarget = '';
@@ -259,6 +270,7 @@
       }).catch(jaringan);
     }).catch(function () { toast('Foto tidak dapat dibuka. Coba lagi.', true); });
   };
+  $('ffoto2').onchange = $('ffoto').onchange;
 
   /* ---------- Tamu harian ---------- */
   function gambarTamu(daftar) {
@@ -381,7 +393,7 @@
   };
 
   var MU = MemberUI({ el: $('v-member'), kirim: kirim, toast: toast, esc: esc, rp: rp, fmtTgl: fmtTgl, msg: kataKunci, jaringan: jaringan, bisaLink: true, linkKartu: linkKartu, waUrl: waUrl,
-    aksi: { perpanjang: function (m) { D = { mode: 'perpanjang', metode: 'Tunai', nama: '', wa: '', foto: '', q: '', hasil: [], pilih: m, layar: 'form', sukses: null, sibuk: false }; buka('daftar'); }, fotoLengkap: function (id) { fotoTarget = id; $('ffoto').click(); } } });
+    aksi: { perpanjang: function (m) { D = { mode: 'perpanjang', metode: 'Tunai', nama: '', wa: '', foto: '', q: '', hasil: [], pilih: m, layar: 'form', sukses: null, sibuk: false }; buka('daftar'); }, fotoLengkap: function (id) { fotoTarget = id; sumberFoto(); } } });
 
   /* ---------- Mulai ---------- */
   setTimeout(function () { var j = document.createElement('script'); j.src = 'jsQR.js'; document.head.appendChild(j); }, 0); // pemindai dimuat setelah layar tampil
