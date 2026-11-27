@@ -31,7 +31,7 @@
   <div id="v-member" class="v" style="display:none;flex-direction:column;gap:14px"></div>
   <nav class="nav" id="nav"><button data-n="scan" class="on">Scan</button><button data-n="jual">Jual</button><button data-n="daftar">Daftar</button><button data-n="member">Member</button><button data-n="kas">Kas</button></nav>
 </section>
-<input id="ffoto" type="file" accept="image/*" capture="user" hidden>
+<input id="ffoto" type="file" accept="image/*" hidden>
 </main>
 <script>
 (function () {
@@ -186,11 +186,11 @@
     if (D.mode === 'baru') {
       h += '<div class="f"><label for="dn">Nama</label><input id="dn" type="text" value="' + esc(D.nama) + '" placeholder="Nama lengkap"></div>' +
         '<div class="f"><label for="dw">Nomor WhatsApp aktif</label><input id="dw" type="tel" value="' + esc(D.wa) + '" placeholder="08xxxxxxxxxx"></div>' +
-        (D.foto ? '<div class="panel" style="align-items:center"><img alt="Foto wajah" src="' + esc(D.foto) + '" style="width:120px;height:150px;object-fit:cover;border-radius:14px"><button class="sec" data-a="foto">Ulangi foto</button></div>' : '<button class="sec" data-a="foto" style="min-height:84px;border-style:dashed">Ketuk untuk ambil foto wajah</button>');
+        (D.foto ? '<div class="panel" style="align-items:center"><img alt="Foto wajah" src="' + esc(D.foto) + '" style="width:120px;height:150px;object-fit:cover;border-radius:14px"><button class="sec" data-a="foto">Ganti foto</button></div>' : '<button class="sec" data-a="foto" style="min-height:84px;border-style:dashed">Ketuk untuk ambil atau pilih foto wajah</button><p class="muted" style="margin:0">Boleh foto langsung dengan kamera, atau pilih dari galeri (misalnya foto yang dikirim member). Wajah harus jelas dan menghadap depan.</p>');
     } else {
       h += '<div class="f"><label for="dq">Cari member (nama atau nomor WA)</label><input id="dq" type="search" value="' + esc(D.q) + '" placeholder="Minimal 2 huruf"></div><button class="sec" data-a="cari">Cari</button>';
       if (D.hasil.length && !D.pilih) h += '<div class="list">' + D.hasil.map(function (m) { return '<button data-a="pilih" data-f="' + (m.foto ? '1' : '0') + '" data-l="' + (m.link ? '1' : '0') + '" data-id="' + esc(m.id) + '" data-nm="' + esc(m.nama) + '">' + esc(m.nama) + '<br><span class="muted">' + esc(m.wa) + ' - ' + (m.aktif ? 'aktif sampai ' + fmtTgl(m.tglHabis) : 'tidak aktif') + (m.foto ? '' : ' - FOTO BELUM ADA') + '</span></button>'; }).join('') + '</div>';
-      if (D.pilih) h += '<div class="panel"><div class="row"><span>Member</span><span>' + esc(D.pilih.nama) + '</span></div><button class="sec" data-a="ganti">Pilih member lain</button>' + (D.pilih.foto === false ? '<p class="gal" style="margin:0">Foto wajah belum ada.</p><button data-a="fotodaftar">Ambil foto wajah sekarang</button>' : '') + '<button class="sec" data-a="linkbaru">' + (D.pilih.link === false ? 'Buat dan kirim link kartu' : 'Kirim ulang link (membuat link baru)') + '</button></div>';
+      if (D.pilih) h += '<div class="panel"><div class="row"><span>Member</span><span>' + esc(D.pilih.nama) + '</span></div><button class="sec" data-a="ganti">Pilih member lain</button>' + (D.pilih.foto === false ? '<p class="gal" style="margin:0">Foto wajah belum ada.</p><button data-a="fotodaftar">Ambil atau pilih foto wajah sekarang</button>' : '') + '<button class="sec" data-a="linkbaru">' + (D.pilih.link === false ? 'Buat dan kirim link kartu' : 'Kirim ulang link (membuat link baru)') + '</button></div>';
     }
     h += '<div class="panel"><div class="row"><span>Iuran 1 bulan</span><span>' + rp(S.harga.member) + '</span></div>' + seg([['Tunai', 'Tunai'], ['Transfer', 'Transfer']], D.metode, 'metode') + '</div>';
     h += '<button data-a="lanjut" style="min-height:56px">Lanjut: cek uang diterima</button>';
@@ -206,6 +206,7 @@
   function suksesHtml() {
     var r = D.sukses, h = '<div class="panel" style="border:2px solid var(--biru)"><div class="nama" style="font-size:20px">' + esc(r.judul) + '</div><div class="row"><span>Nama</span><span>' + esc(r.nama) + '</span></div><div class="row"><span>Berlaku sampai</span><span>' + esc(fmtTgl(r.berlakuSampai)) + '</span></div>' + (r.jumlah ? '<div class="row"><span>Diterima</span><span>' + rp(r.jumlah) + '</span></div>' : '') + '</div>';
     if (r.link) h += '<div class="panel"><b>Kirim link kartu ke member</b><p class="muted" style="margin:0">Link ini hanya tampil sekarang. Jika terlewat, gunakan Kirim ulang link.</p><input id="lk" type="text" readonly value="' + esc(r.link) + '"><a class="btn" style="display:flex;align-items:center;justify-content:center" target="_blank" rel="noopener" href="' + esc(r.wa) + '">Kirim lewat WhatsApp</a><button class="sec" data-a="salin">Salin link</button></div>';
+    else if (/Perpanjangan/.test(r.judul)) h += '<div class="panel"><b>Kartu member otomatis aktif</b><p class="muted" style="margin:0">Aktif sampai tanggal di atas. Link kartu yang sudah dikirim sebelumnya tetap berlaku, tidak ada link baru. Jika member belum punya atau kehilangan link, buka tab Member, pilih namanya, lalu ketuk Buat link kartu baru.</p></div>';
     return h + '<button data-a="selesai" style="min-height:56px">Selesai</button>';
   }
   function linkKartu(token) { return location.href.replace(/[^\/]*$/, '') + 'member.html#' + token; }
